@@ -1298,53 +1298,381 @@ function CourseModal({ course, close, uploadMaterial, materials, toggleLock, use
 // ============================================
 function Staff({ profilePic, saveProfilePic, removeProfilePic, user, meta }) {
   const isStaff = meta?.role === 'staff';
-  const [allPics, setAllPics] = useState({});
-  const [selected, setSelected] = useState(null);
+  const [allStaff, setAllStaff] = useState([]);
+  const [selectedStaff, setSelectedStaff] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [details, setDetails] = useState({
+    bio: '', phone: '', office: '', achievements: []
+  });
+  const [newAch, setNewAch] = useState('');
+  const [busy, setBusy] = useState(false);
 
+  // Load all staff from user_metadata
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('profiles').select('*');
-      if (data) {
-        const map = {};
-        data.forEach(r => { if (r.profile_pic) map[r.user_email || r.user_id] = r.profile_pic; });
-        setAllPics(map);
-      }
+      const { data } = await supabase.from('user_metadata')
+        .select('*')
+        .eq('role', 'staff')
+        .order('name');
+      if (data) setAllStaff(data);
     })();
   }, []);
 
+  // Load my staff_profile_details
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase.from('staff_profile_details')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (data) {
+        setDetails({
+          bio: data.bio || '',
+          phone: data.phone || '',
+          office: data.office || '',
+          achievements: data.achievements || []
+        });
+      }
+    })();
+  }, [user]);
+
+  const saveDetails = async () => {
+    if (!user) return;
+    setBusy(true);
+    const { error } = await supabase.from('staff_profile_details').upsert({
+      user_id: user.id,
+      user_email: meta?.email,
+      user_name: meta?.name,
+      bio: details.bio,
+      phone: details.phone,
+      office: details.office,
+      achievements: details.achievements,
+    }, { onConflict: 'user_id' });
+    setBusy(false);
+    if (error) return alert(error.message);
+    alert('✅ Profile saved!');
+    setEditing(false);
+  };
+
+  const addAch = () => {
+    if (newAch.trim()) {
+      setDetails(d => ({
+        ...d,
+        achievements: [...d.achievements, {
+          text: newAch.trim(),
+          date: new Date().toLocaleDateString()
+        }]
+      }));
+      setNewAch('');
+    }
+  };
+
+  const removeAch = (i) => {
+    setDetails(d => ({
+      ...d,
+      achievements: d.achievements.filter((_, k) => k !== i)
+    }));
+  };
+
   return (
     <Page title="Academic Staff" kicker="OUR PEOPLE">
+
+      {/* ============ MY STAFF PROFILE (only if logged in as staff) ============ */}
       {isStaff && (
-        <div style={{background:'white',padding:'30px',marginBottom:'30px',borderRadius:'12px',display:'flex',alignItems:'center',gap:'30px',flexWrap:'wrap'}}>
-          <ProfileUpload user={meta} profilePic={profilePic} onUpload={saveProfilePic} onRemove={removeProfilePic}/>
-          <div>
-            <h2>{meta?.name}</h2>
-            <p>{meta?.rank} • {meta?.spec}</p>
-            <p>📧 {meta?.email}</p>
+        <div style={{
+          background: 'white',
+          borderRadius: '12px',
+          padding: '30px',
+          marginBottom: '30px',
+          border: '2px solid #e1b84b',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+            <h2 style={{ margin: 0, color: '#102a43' }}>👤 My Staff Profile</h2>
+            {!editing ? (
+              <button className="primary" onClick={() => setEditing(true)}>
+                ✏️ Edit Profile
+              </button>
+            ) : (
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="primary" onClick={saveDetails} disabled={busy} style={{ background: '#28a745' }}>
+                  {busy ? 'Saving...' : '✅ Save'}
+                </button>
+                <button className="secondary" onClick={() => setEditing(false)}>Cancel</button>
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', gap: '30px', marginTop: '20px', flexWrap: 'wrap' }}>
+            {/* Left: profile picture */}
+            <div style={{ textAlign: 'center' }}>
+              <ProfileUpload
+                user={meta}
+                profilePic={profilePic}
+                onUpload={saveProfilePic}
+                onRemove={removeProfilePic}
+              />
+              <p style={{ fontSize: '12px', color: '#66788a', marginTop: '10px' }}>
+                Click to {profilePic ? 'change' : 'upload'}<br />your profile picture
+              </p>
+            </div>
+
+            {/* Right: profile info */}
+            <div style={{ flex: 1, minWidth: '260px' }}>
+              <h3 style={{ margin: '0 0 5px', color: '#102a43', fontSize: '22px' }}>{meta?.name}</h3>
+              <p style={{ color: '#1769aa', margin: '0 0 3px', fontWeight: '600' }}>{meta?.rank}</p>
+              <p style={{ color: '#66788a', margin: '0 0 3px', fontSize: '14px' }}>🔬 {meta?.spec}</p>
+              <p style={{ color: '#66788a', margin: '0 0 15px', fontSize: '14px' }}>📧 {meta?.email}</p>
+
+              {/* Editable fields */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#66788a', marginBottom: '3px' }}>Phone</label>
+                  {editing ? (
+                    <input type="text" value={details.phone}
+                      onChange={e => setDetails({ ...details, phone: e.target.value })}
+                      placeholder="+251 ..."
+                      style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '6px' }} />
+                  ) : (
+                    <p style={{ margin: 0, color: '#333', fontSize: '14px' }}>{details.phone || '—'}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#66788a', marginBottom: '3px' }}>Office</label>
+                  {editing ? (
+                    <input type="text" value={details.office}
+                      onChange={e => setDetails({ ...details, office: e.target.value })}
+                      placeholder="e.g. Block 3, Room 12"
+                      style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '6px' }} />
+                  ) : (
+                    <p style={{ margin: 0, color: '#333', fontSize: '14px' }}>{details.office || '—'}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bio */}
+          <div style={{ marginTop: '20px' }}>
+            <label style={{ display: 'block', fontWeight: '600', marginBottom: '6px', color: '#102a43' }}>Bio / About</label>
+            {editing ? (
+              <textarea value={details.bio} rows="4"
+                onChange={e => setDetails({ ...details, bio: e.target.value })}
+                placeholder="Write a short academic bio — research interests, teaching areas, background..."
+                style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px' }} />
+            ) : (
+              <p style={{ margin: 0, color: '#333', fontSize: '14px', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+                {details.bio || 'No bio yet. Click "Edit Profile" to add one.'}
+              </p>
+            )}
+          </div>
+
+          {/* Achievements */}
+          <div style={{ marginTop: '20px' }}>
+            <label style={{ display: 'block', fontWeight: '600', marginBottom: '6px', color: '#102a43' }}>
+              🏆 Achievements ({details.achievements.length})
+            </label>
+
+            {editing && (
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                <input type="text" value={newAch}
+                  onChange={e => setNewAch(e.target.value)}
+                  placeholder="e.g. Published paper in Journal of African Earth Sciences (2025)"
+                  onKeyPress={e => e.key === 'Enter' && addAch()}
+                  style={{ flex: 1, padding: '8px', border: '1px solid #ccc', borderRadius: '6px' }} />
+                <button className="primary" onClick={addAch}>+ Add</button>
+              </div>
+            )}
+
+            {details.achievements.length === 0 ? (
+              <p style={{ color: '#999', fontStyle: 'italic', fontSize: '13px' }}>No achievements added yet.</p>
+            ) : (
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {details.achievements.map((a, i) => (
+                  <li key={i} style={{
+                    padding: '10px 12px',
+                    background: '#f8f9fa',
+                    borderRadius: '6px',
+                    marginBottom: '6px',
+                    borderLeft: '3px solid #e1b84b',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: '10px'
+                  }}>
+                    <div>
+                      <strong style={{ color: '#102a43' }}>{a.text}</strong>
+                      <br />
+                      <span style={{ fontSize: '11px', color: '#999' }}>Added {a.date}</span>
+                    </div>
+                    {editing && (
+                      <button
+                        onClick={() => removeAch(i)}
+                        style={{
+                          background: 'transparent',
+                          border: '1px solid #dc3545',
+                          color: '#dc3545',
+                          padding: '4px 10px',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '12px'
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       )}
-      <div className="staffGrid">
-        {[
-          {name:"Amare Getaneh",rank:"MSc.",spec:"Hydrogeology"},{name:"Amare Kassie",rank:"PhD.",spec:"Economic Geology"},
-          {name:"Belay Fentahun",rank:"MSc.",spec:"Economic Geology"},{name:"Dawit Asmare",rank:"Assistant Professor",spec:"Engineering Geology"},
-          {name:"Siham Adem",rank:"MSc.",spec:"Petrology"},{name:"Yaregal Bayih",rank:"MSc.",spec:"Petrology"},
-          {name:"Yohannes Gashu",rank:"MSc.",spec:"Hydrogeology"},{name:"Biniyam Fentie",rank:"MSc.",spec:"Petrology"},
-          {name:"Abraham Mulualem",rank:"MSc.",spec:"Geophysics"},{name:"Ajebush Wuletaw",rank:"MSc.",spec:"Economic Geology"},
-          {name:"Temesgen Kinde",rank:"MSc.",spec:"Structural Geology"},{name:"Bishaw Mihret",rank:"MSc.",spec:"Structural Geology"},
-          {name:"Abraham Nigusie",rank:"BSc.",spec:"Paleontology"},{name:"Birtukan Yalew",rank:"BSc.",spec:"Paleontology"},
-          {name:"Likinaw Mengstie",rank:"MSc.",spec:"GIS and Remote Sensing"},{name:"Birhane Girm",rank:"MSc.",spec:"Geochemistry"},
-          {name:"Birkitu Alemayehu",rank:"MSc.",spec:"Geochemistry"},{name:"Yalemtsehay Tesfaw",rank:"TA",spec:"Technical Assistant"}
-        ].map(s => (
-          <article className="staffCard" key={s.name}>
-            <div className="avatar">{<UserRound/>}</div>
-            <h3>{s.name}</h3>
-            <b>{s.rank}</b>
-            <p>{s.spec}</p>
+
+      {/* ============ ALL STAFF DIRECTORY ============ */}
+      <h2 style={{ color: '#102a43', marginBottom: '15px' }}>Department Staff ({allStaff.length})</h2>
+
+      <div className="staffGrid" style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+        gap: '20px'
+      }}>
+        {allStaff.map(s => (
+          <article key={s.id} className="staffCard" style={{
+            background: 'white',
+            border: '1px solid #dbe4ec',
+            borderRadius: '12px',
+            padding: '20px',
+            textAlign: 'center'
+          }}>
+            <div className="avatar" style={{
+              display: 'inline-block',
+              width: '74px',
+              height: '74px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #1a3a5c, #1769aa)',
+              color: 'white',
+              display: 'grid',
+              placeItems: 'center',
+              margin: '0 auto 12px',
+              fontSize: '28px',
+              fontWeight: 'bold'
+            }}>
+              {s.name ? s.name.charAt(0) : '?'}
+            </div>
+            <h3 style={{ margin: '0 0 4px', color: '#102a43', fontSize: '16px' }}>{s.name}</h3>
+            <b style={{ color: '#1769aa', fontSize: '13px' }}>{s.rank}</b>
+            <p style={{ color: '#66788a', fontSize: '13px', margin: '5px 0 10px' }}>{s.spec}</p>
+            <button
+              className="textBtn"
+              onClick={() => setSelectedStaff(s)}
+              style={{
+                color: '#1769aa',
+                border: '1px solid #1769aa',
+                background: 'white',
+                padding: '6px 14px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '13px'
+              }}
+            >
+              View Profile
+            </button>
           </article>
         ))}
       </div>
+
+      {/* View other staff modal */}
+      {selectedStaff && (
+        <StaffViewModal
+          staffMember={selectedStaff}
+          onClose={() => setSelectedStaff(null)}
+        />
+      )}
     </Page>
+  );
+}
+
+// ============================================
+// Staff view modal — shows another staff's bio + achievements
+// ============================================
+function StaffViewModal({ staffMember, onClose }) {
+  const [details, setDetails] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('staff_profile_details')
+        .select('*')
+        .eq('user_id', staffMember.id)
+        .maybeSingle();
+      setDetails(data);
+    })();
+  }, [staffMember.id]);
+
+  return (
+    <div className="modalBackdrop" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}
+        style={{ maxWidth: '600px', maxHeight: '80vh', overflow: 'auto', background: 'white', borderRadius: '14px', padding: '30px' }}>
+        <button className="close" onClick={onClose} style={{ float: 'right' }}><X /></button>
+
+        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+          <div style={{
+            width: '90px', height: '90px', borderRadius: '50%',
+            background: 'linear-gradient(135deg, #1a3a5c, #1769aa)',
+            color: 'white', display: 'grid', placeItems: 'center',
+            margin: '0 auto 12px', fontSize: '36px', fontWeight: 'bold'
+          }}>
+            {staffMember.name?.charAt(0)}
+          </div>
+          <h2 style={{ margin: '0 0 5px', color: '#102a43' }}>{staffMember.name}</h2>
+          <p style={{ color: '#1769aa', margin: 0, fontWeight: '600' }}>{staffMember.rank}</p>
+          <p style={{ color: '#66788a', margin: 0, fontSize: '14px' }}>{staffMember.spec}</p>
+          <p style={{ color: '#66788a', margin: '5px 0 0', fontSize: '13px' }}>📧 {staffMember.email}</p>
+        </div>
+
+        {details ? (
+          <>
+            {details.bio && (
+              <div style={{ marginTop: '20px' }}>
+                <h4 style={{ color: '#102a43', marginBottom: '8px' }}>About</h4>
+                <p style={{ color: '#333', fontSize: '14px', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{details.bio}</p>
+              </div>
+            )}
+
+            {(details.phone || details.office) && (
+              <div style={{ marginTop: '20px' }}>
+                <h4 style={{ color: '#102a43', marginBottom: '8px' }}>Contact</h4>
+                {details.phone && <p style={{ margin: '0 0 4px', color: '#333', fontSize: '14px' }}>📞 {details.phone}</p>}
+                {details.office && <p style={{ margin: 0, color: '#333', fontSize: '14px' }}>🏢 {details.office}</p>}
+              </div>
+            )}
+
+            {details.achievements && details.achievements.length > 0 && (
+              <div style={{ marginTop: '20px' }}>
+                <h4 style={{ color: '#102a43', marginBottom: '8px' }}>🏆 Achievements</h4>
+                <ul style={{ paddingLeft: '20px', margin: 0 }}>
+                  {details.achievements.map((a, i) => (
+                    <li key={i} style={{ marginBottom: '6px', color: '#333', fontSize: '14px' }}>
+                      {a.text} <span style={{ color: '#999', fontSize: '12px' }}>({a.date})</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </>
+        ) : (
+          <p style={{ color: '#999', textAlign: 'center', fontStyle: 'italic' }}>
+            No profile details shared yet.
+          </p>
+        )}
+
+        <button className="secondary" onClick={onClose} style={{ width: '100%', marginTop: '20px' }}>
+          Close
+        </button>
+      </div>
+    </div>
   );
 }
 
