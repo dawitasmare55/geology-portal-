@@ -1768,51 +1768,417 @@ function Research({ publications, setPublications, user, meta }) {
 // NEWS
 // ============================================
 function News({ newsItems, setNewsItems, user, meta }) {
-  const [show, setShow] = useState(false);
-  const [form, setForm] = useState({title:'',category:'News',content:'',imageFile:null,file:null});
-  const [busy, setBusy] = useState(false);
   const isStaff = meta?.role === 'staff';
-  const cats = ['News','Event','Seminar','Brochure','Banner','Information','Announcement'];
+  const [showForm, setShowForm] = useState(false);
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const [form, setForm] = useState({
+    title: '', category: 'News', content: '',
+    imageFile: null, file: null
+  });
+  const [busy, setBusy] = useState(false);
+
+  // Categories split
+  const newsOnly = newsItems.filter(n => n.category !== 'Event');
+  const eventsOnly = newsItems.filter(n => n.category === 'Event');
+
+  // For carousel: show 3 at a time
+  const visibleCards = 3;
+  const maxIndex = Math.max(0, newsOnly.length - visibleCards);
+
+  const next = () => setCarouselIndex(i => Math.min(maxIndex, i + 1));
+  const prev = () => setCarouselIndex(i => Math.max(0, i - 1));
 
   const submit = async () => {
-    if (!form.title.trim()) return alert('Enter title.');
+    if (!form.title.trim()) return alert('Please enter a title.');
     setBusy(true);
+
     let imageUrl = '', fileUrl = '';
-    if (form.imageFile) { const r = await uploadToStorage('news-files', form.imageFile); if (r) imageUrl = r.url; }
-    if (form.file) { const r = await uploadToStorage('news-files', form.file); if (r) fileUrl = r.url; }
-    const row = {title:form.title.trim(),category:form.category,content:form.content.trim()||'No description.',image_url:imageUrl,file_url:fileUrl,uploaded_by:meta?.name,user_id:user.id};
-    const { data } = await supabase.from('news').insert([row]).select();
+    if (form.imageFile) {
+      const up = await uploadToStorage('news-files', form.imageFile);
+      if (up) imageUrl = up.url;
+    }
+    if (form.file) {
+      const up = await uploadToStorage('news-files', form.file);
+      if (up) fileUrl = up.url;
+    }
+
+    const row = {
+      title: form.title.trim(),
+      category: form.category,
+      content: form.content.trim() || 'No description.',
+      image_url: imageUrl,
+      file_url: fileUrl,
+      uploaded_by: meta?.name,
+      user_id: user.id,
+    };
+
+    const { data, error } = await supabase.from('news').insert([row]).select();
+    setBusy(false);
+    if (error) return alert(error.message);
+
     if (data) setNewsItems(prev => [...data, ...prev]);
-    setForm({title:'',category:'News',content:'',imageFile:null,file:null});
-    setShow(false); setBusy(false); alert('✅ Posted!');
+    setForm({ title: '', category: 'News', content: '', imageFile: null, file: null });
+    setShowForm(false);
+    alert('✅ Posted!');
   };
-  const del = async (id) => { if (confirm('Delete?')) { await supabase.from('news').delete().eq('id', id); setNewsItems(prev => prev.filter(n=>n.id!==id)); } };
+
+  const del = async (id) => {
+    if (!confirm('Delete this item?')) return;
+    await supabase.from('news').delete().eq('id', id);
+    setNewsItems(prev => prev.filter(n => n.id !== id));
+  };
 
   return (
-    <Page title="News & Events" kicker="LATEST UPDATES">
-      {isStaff && <button className="primary" onClick={()=>setShow(!show)} style={{background:'#28a745',marginBottom:'20px'}}>{show?'Close':'Create Post'}</button>}
-      {show && isStaff && (
-        <div style={{background:'#f8f9fa',padding:'20px',borderRadius:'12px',marginBottom:'20px'}}>
-          <input type="text" value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="Title" style={{width:'100%',padding:'10px',marginBottom:'8px'}}/>
-          <select value={form.category} onChange={e=>setForm({...form,category:e.target.value})} style={{width:'100%',padding:'10px',marginBottom:'8px'}}>{cats.map(c=><option key={c}>{c}</option>)}</select>
-          <textarea value={form.content} onChange={e=>setForm({...form,content:e.target.value})} rows="4" placeholder="Content" style={{width:'100%',padding:'10px',marginBottom:'8px'}}/>
-          <label style={{display:'block',marginBottom:'8px'}}>Image: <input type="file" accept="image/*" onChange={e=>setForm({...form,imageFile:e.target.files[0]})}/></label>
-          <label style={{display:'block',marginBottom:'8px'}}>File: <input type="file" onChange={e=>setForm({...form,file:e.target.files[0]})}/></label>
-          <button className="primary" onClick={submit} disabled={busy} style={{background:'#28a745'}}>{busy?'Uploading...':'Post'}</button>
-        </div>
-      )}
-      {newsItems.map(n => (
-        <div key={n.id} style={{background:'white',border:'1px solid #dbe4ec',borderRadius:'10px',padding:'20px',marginBottom:'15px'}}>
-          <small>{n.category} • {n.created_at?new Date(n.created_at).toLocaleDateString():'Today'}</small>
-          <h3>{n.title}</h3>
-          {n.image_url && <img src={n.image_url} alt={n.title} style={{maxWidth:'300px',borderRadius:'8px'}}/>}
-          <p>{n.content}</p>
-          {n.file_url && <a href={n.file_url} target="_blank" rel="noreferrer">📎 Download</a>}
-          <p style={{fontSize:'12px',color:'#999'}}>Posted by: {n.uploaded_by}</p>
-          {isStaff && user.id === n.user_id && (<button className="secondary" onClick={()=>del(n.id)} style={{color:'#dc3545'}}>Delete</button>)}
-        </div>
-      ))}
-    </Page>
+    <main className="page">
+      <div className="pageHero">
+        <div className="eyebrow">LATEST UPDATES</div>
+        <h1>News &amp; Events</h1>
+      </div>
+
+      <section className="section">
+
+        {/* ==================== STAFF POST BUTTON ==================== */}
+        {isStaff && (
+          <div style={{ textAlign: 'right', marginBottom: '20px' }}>
+            <button
+              className="primary"
+              onClick={() => setShowForm(!showForm)}
+              style={{ background: '#28a745' }}
+            >
+              {showForm ? '📕 Close Form' : '📝 Create New Post'}
+            </button>
+          </div>
+        )}
+
+        {/* ==================== POST FORM (staff) ==================== */}
+        {isStaff && showForm && (
+          <div style={{
+            background: '#f8f9fa', padding: '20px',
+            borderRadius: '12px', marginBottom: '30px',
+            border: '1px solid #dbe4ec'
+          }}>
+            <h3 style={{ color: '#102a43', marginBottom: '15px' }}>📝 New Post</h3>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+              <div style={{ gridColumn: 'span 2' }}>
+                <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Title *</label>
+                <input type="text" value={form.title}
+                  onChange={e => setForm({ ...form, title: e.target.value })}
+                  placeholder="Headline..."
+                  style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Category</label>
+                <select value={form.category}
+                  onChange={e => setForm({ ...form, category: e.target.value })}
+                  style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}>
+                  <option>News</option>
+                  <option>Event</option>
+                  <option>Seminar</option>
+                  <option>Brochure</option>
+                  <option>Banner</option>
+                  <option>Information</option>
+                  <option>Announcement</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Photo</label>
+                <input type="file" accept="image/*"
+                  onChange={e => setForm({ ...form, imageFile: e.target.files[0] })}
+                  style={{ padding: '8px' }} />
+              </div>
+
+              <div style={{ gridColumn: 'span 2' }}>
+                <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Content</label>
+                <textarea value={form.content} rows="4"
+                  onChange={e => setForm({ ...form, content: e.target.value })}
+                  placeholder="Write the story..."
+                  style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
+              </div>
+
+              <div style={{ gridColumn: 'span 2' }}>
+                <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Attachment (optional)</label>
+                <input type="file"
+                  onChange={e => setForm({ ...form, file: e.target.files[0] })}
+                  style={{ padding: '8px' }} />
+              </div>
+            </div>
+
+            <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
+              <button className="primary" onClick={submit} disabled={busy} style={{ background: '#28a745' }}>
+                {busy ? 'Uploading...' : '✅ Publish'}
+              </button>
+              <button className="secondary" onClick={() => setShowForm(false)}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {/* ==================== NEWS CAROUSEL ==================== */}
+        {newsOnly.length > 0 && (
+          <div style={{ position: 'relative', marginBottom: '60px' }}>
+
+            {/* Left arrow */}
+            {carouselIndex > 0 && (
+              <button
+                onClick={prev}
+                style={{
+                  position: 'absolute', left: '-20px', top: '35%',
+                  transform: 'translateY(-50%)',
+                  background: '#1769aa', color: 'white', border: 'none',
+                  borderRadius: '50%', width: '52px', height: '52px',
+                  display: 'grid', placeItems: 'center', cursor: 'pointer',
+                  zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                }}
+              >
+                <ChevronLeft size={26} />
+              </button>
+            )}
+
+            {/* Right arrow */}
+            {carouselIndex < maxIndex && (
+              <button
+                onClick={next}
+                style={{
+                  position: 'absolute', right: '-20px', top: '35%',
+                  transform: 'translateY(-50%)',
+                  background: '#1769aa', color: 'white', border: 'none',
+                  borderRadius: '50%', width: '52px', height: '52px',
+                  display: 'grid', placeItems: 'center', cursor: 'pointer',
+                  zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                }}
+              >
+                <ChevronRight size={26} />
+              </button>
+            )}
+
+            {/* Cards container — shows 3 at a time with smooth transform */}
+            <div style={{ overflow: 'hidden' }}>
+              <div style={{
+                display: 'flex',
+                gap: '30px',
+                transition: 'transform 0.4s ease',
+                transform: `translateX(calc(-${carouselIndex} * (33.333% + 10px)))`
+              }}>
+                {newsOnly.map((n, i) => (
+                  <article
+                    key={n.id}
+                    style={{
+                      flex: `0 0 calc(33.333% - 20px)`,
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => {
+                      // scroll to details — no separate page, so just expand below
+                      const el = document.getElementById(`news-${n.id}`);
+                      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }}
+                  >
+                    {n.image_url ? (
+                      <img
+                        src={n.image_url}
+                        alt={n.title}
+                        style={{
+                          width: '100%',
+                          height: '230px',
+                          objectFit: 'cover',
+                          borderRadius: '12px',
+                          marginBottom: '15px'
+                        }}
+                      />
+                    ) : (
+                      <div style={{
+                        width: '100%',
+                        height: '230px',
+                        background: 'linear-gradient(135deg, #1a3a5c, #1769aa)',
+                        borderRadius: '12px',
+                        display: 'grid',
+                        placeItems: 'center',
+                        color: 'white',
+                        fontSize: '42px',
+                        marginBottom: '15px'
+                      }}>📰</div>
+                    )}
+                    <h3 style={{
+                      color: '#102a43',
+                      fontSize: '19px',
+                      fontWeight: '700',
+                      lineHeight: '1.35',
+                      margin: 0
+                    }}>
+                      {n.title}
+                    </h3>
+                  </article>
+                ))}
+              </div>
+            </div>
+
+            {/* Dots */}
+            <div style={{
+              textAlign: 'center',
+              marginTop: '35px',
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '10px'
+            }}>
+              {Array.from({ length: maxIndex + 1 }).map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCarouselIndex(i)}
+                  style={{
+                    width: '10px', height: '10px',
+                    borderRadius: '50%', border: 'none',
+                    background: i === carouselIndex ? '#1769aa' : '#c6d4e0',
+                    cursor: 'pointer',
+                    transition: 'background 0.3s'
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ==================== EVENTS SECTION ==================== */}
+        {eventsOnly.length > 0 && (
+          <div style={{ marginTop: '60px' }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'baseline',
+              marginBottom: '25px'
+            }}>
+              <h2 style={{
+                color: '#102a43',
+                fontSize: '32px',
+                margin: 0,
+                fontWeight: '800'
+              }}>
+                Events
+              </h2>
+              <a href="#all-events" style={{
+                color: '#1769aa',
+                textDecoration: 'none',
+                fontWeight: '600',
+                fontSize: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                View All <ChevronRight size={16} />
+              </a>
+            </div>
+
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+              gap: '20px'
+            }} id="all-events">
+              {eventsOnly.map(e => (
+                <article key={e.id} style={{
+                  background: 'white',
+                  border: '1px solid #dbe4ec',
+                  borderRadius: '12px',
+                  overflow: 'hidden',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+                }}>
+                  {e.image_url ? (
+                    <img src={e.image_url} alt={e.title}
+                      style={{ width: '100%', height: '180px', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{
+                      width: '100%', height: '180px',
+                      background: 'linear-gradient(135deg, #1a3a5c, #1769aa)',
+                      display: 'grid', placeItems: 'center',
+                      color: 'white', fontSize: '36px'
+                    }}>📅</div>
+                  )}
+                  <div style={{ padding: '18px' }}>
+                    {e.created_at && (
+                      <p style={{ margin: '0 0 8px', color: '#66788a', fontSize: '13px' }}>
+                        🗓️ {new Date(e.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      </p>
+                    )}
+                    <h3 style={{ margin: '0 0 8px', color: '#102a43', fontSize: '16px' }}>
+                      {e.title}
+                    </h3>
+                    <p style={{ margin: 0, color: '#66788a', fontSize: '13px', lineHeight: '1.6' }}>
+                      {e.content?.substring(0, 120)}
+                      {e.content?.length > 120 ? '...' : ''}
+                    </p>
+                    {isStaff && user.id === e.user_id && (
+                      <button className="secondary" onClick={() => del(e.id)}
+                        style={{ marginTop: '10px', color: '#dc3545', fontSize: '12px' }}>
+                        🗑️ Delete
+                      </button>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ==================== ALL NEWS (FULL LIST) ==================== */}
+        {newsOnly.length > 0 && (
+          <div style={{ marginTop: '60px' }}>
+            <h2 style={{ color: '#102a43', fontSize: '24px', marginBottom: '20px' }}>
+              All News ({newsOnly.length})
+            </h2>
+            <div style={{ display: 'grid', gap: '15px' }}>
+              {newsOnly.map(n => (
+                <article key={n.id} id={`news-${n.id}`} style={{
+                  background: 'white',
+                  border: '1px solid #dbe4ec',
+                  borderRadius: '10px',
+                  padding: '20px',
+                  display: 'flex',
+                  gap: '20px',
+                  flexWrap: 'wrap'
+                }}>
+                  {n.image_url && (
+                    <img src={n.image_url} alt={n.title}
+                      style={{ width: '180px', height: '120px', objectFit: 'cover', borderRadius: '8px' }} />
+                  )}
+                  <div style={{ flex: 1, minWidth: '220px' }}>
+                    <small style={{ color: '#66788a' }}>
+                      {n.category} • {n.created_at ? new Date(n.created_at).toLocaleDateString() : 'Today'}
+                    </small>
+                    <h3 style={{ margin: '5px 0 10px', color: '#102a43', fontSize: '18px' }}>{n.title}</h3>
+                    <p style={{ color: '#555', fontSize: '14px', lineHeight: '1.6', margin: 0 }}>
+                      {n.content}
+                    </p>
+                    <p style={{ fontSize: '12px', color: '#999', marginTop: '10px' }}>
+                      Posted by {n.uploaded_by}
+                    </p>
+                    {isStaff && user.id === n.user_id && (
+                      <button className="secondary" onClick={() => del(n.id)}
+                        style={{ marginTop: '8px', color: '#dc3545', fontSize: '12px' }}>
+                        🗑️ Delete
+                      </button>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ==================== EMPTY STATE ==================== */}
+        {newsItems.length === 0 && (
+          <div style={{
+            textAlign: 'center', padding: '60px 20px',
+            background: '#f8f9fa', borderRadius: '12px'
+          }}>
+            <Newspaper size={52} color="#1769aa" />
+            <h3 style={{ color: '#102a43', marginTop: '15px' }}>No News Yet</h3>
+            <p style={{ color: '#66788a' }}>
+              {isStaff ? 'Click "Create New Post" to add the first post.' : 'Check back soon.'}
+            </p>
+          </div>
+        )}
+
+      </section>
+    </main>
   );
 }
 // ============================================
