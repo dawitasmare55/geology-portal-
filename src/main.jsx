@@ -439,7 +439,7 @@ const markPasswordChanged = async () => {
       {page==="staff" && <Staff profilePic={profilePic} saveProfilePic={saveProfilePic} removeProfilePic={removeProfilePic} user={user} meta={meta}/>}
       {page==="research" && <Research publications={publications} setPublications={setPublications} user={user} meta={meta}/>}
       {page==="news" && <News newsItems={newsItems} setNewsItems={setNewsItems} user={user} meta={meta}/>}
-      {page==="activities" && <Activities/>}
+      {page==="activities" && <Activities user={user} meta={meta}/>}
       {page==="resources" && <Resources navigate={navigate}/>}
       {page==="contact" && <Contact/>}
       {page==="student" && <StudentPortal user={user} meta={meta} courses={courses} navigate={navigate} setSelectedCourse={setSelectedCourse}/>}
@@ -638,7 +638,263 @@ function Page({title,kicker,children}){return <main className="page"><div classN
 
 function About(){return <Page title="About the Department" kicker="WHO WE ARE"><SectionTitle kicker="DEPARTMENT OVERVIEW" title="Geology at Debre Markos University"/><div className="twoCol"><article><h3>Overview</h3><p>The Department of Geology prepares graduates with strong geological knowledge.</p></article><article className="infoBox"><h3>Vision</h3><p>To become a leading center of geological education.</p></article></div></Page>}
 
-function Activities(){return <Page title="Activities" kicker="ENGAGEMENT"><div className="activityGrid">{["Field Trips","Seminars","Lab Training","Community Service","Workshops","Industrial Visits"].map((x,i)=><article className="activity" key={x}><div className="activityNo">0{i+1}</div><h3>{x}</h3></article>)}</div></Page>}
+function Activities({ user, meta }) {
+  const [activities, setActivities] = useState([]);
+  const [showForm, setShowForm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({
+    title: '',
+    description: '',
+    category: 'Field Trip',
+    date: '',
+    location: '',
+    imageFile: null,
+  });
+
+  const isStaff = meta?.role === 'staff';
+
+  // Load activities
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('activities')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (data) setActivities(data);
+    })();
+  }, []);
+
+  const submit = async () => {
+    if (!form.title.trim()) return alert('Please enter a title.');
+    if (!form.imageFile) return alert('Please choose an image.');
+
+    setBusy(true);
+    const up = await uploadToStorage('activity-images', form.imageFile);
+    if (!up) { setBusy(false); return alert('Image upload failed.'); }
+
+    const row = {
+      title: form.title.trim(),
+      description: form.description.trim(),
+      category: form.category,
+      activity_date: form.date,
+      location: form.location.trim(),
+      image_url: up.url,
+      uploaded_by: meta?.name,
+      user_id: user.id,
+    };
+
+    const { data, error } = await supabase.from('activities').insert([row]).select();
+    setBusy(false);
+    if (error) return alert(error.message);
+
+    if (data) setActivities(prev => [...data, ...prev]);
+    setForm({ title: '', description: '', category: 'Field Trip', date: '', location: '', imageFile: null });
+    setShowForm(false);
+    alert('✅ Activity posted!');
+  };
+
+  const del = async (id) => {
+    if (!confirm('Delete this activity?')) return;
+    await supabase.from('activities').delete().eq('id', id);
+    setActivities(prev => prev.filter(a => a.id !== id));
+  };
+
+  return (
+    <Page title="Department Activities" kicker="ENGAGEMENT">
+
+      {/* Post button (staff only) */}
+      {isStaff && (
+        <button
+          className="primary"
+          onClick={() => setShowForm(!showForm)}
+          style={{ background: '#28a745', marginBottom: '20px' }}
+        >
+          {showForm ? '📕 Close Form' : '📝 Post New Activity'}
+        </button>
+      )}
+
+      {/* Form (staff only) */}
+      {isStaff && showForm && (
+        <div style={{
+          background: '#f8f9fa', padding: '20px',
+          borderRadius: '12px', marginBottom: '25px',
+          border: '1px solid #dbe4ec'
+        }}>
+          <h3 style={{ color: '#102a43', marginBottom: '15px' }}>📝 New Activity</h3>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+            <div style={{ gridColumn: 'span 2' }}>
+              <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Title *</label>
+              <input
+                type="text" value={form.title}
+                onChange={e => setForm({ ...form, title: e.target.value })}
+                placeholder="e.g. Geological Field Trip to the Blue Nile Gorge"
+                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Category</label>
+              <select
+                value={form.category}
+                onChange={e => setForm({ ...form, category: e.target.value })}
+                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}
+              >
+                <option>Field Trip</option>
+                <option>Lab Training</option>
+                <option>Seminar</option>
+                <option>Workshop</option>
+                <option>Community Service</option>
+                <option>Industrial Visit</option>
+                <option>Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Date</label>
+              <input
+                type="date" value={form.date}
+                onChange={e => setForm({ ...form, date: e.target.value })}
+                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}
+              />
+            </div>
+
+            <div style={{ gridColumn: 'span 2' }}>
+              <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Location</label>
+              <input
+                type="text" value={form.location}
+                onChange={e => setForm({ ...form, location: e.target.value })}
+                placeholder="e.g. Blue Nile Gorge, Dejen"
+                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}
+              />
+            </div>
+
+            <div style={{ gridColumn: 'span 2' }}>
+              <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Description</label>
+              <textarea
+                value={form.description} rows="4"
+                onChange={e => setForm({ ...form, description: e.target.value })}
+                placeholder="What happened? Who attended?"
+                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}
+              />
+            </div>
+
+            <div style={{ gridColumn: 'span 2' }}>
+              <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Photo *</label>
+              <input
+                type="file" accept="image/*"
+                onChange={e => setForm({ ...form, imageFile: e.target.files[0] })}
+                style={{ padding: '8px' }}
+              />
+            </div>
+          </div>
+
+          <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
+            <button
+              className="primary" onClick={submit} disabled={busy}
+              style={{ background: '#28a745' }}
+            >
+              {busy ? 'Uploading...' : '✅ Publish Activity'}
+            </button>
+            <button
+              className="secondary"
+              onClick={() => { setShowForm(false); setForm({ title: '', description: '', category: 'Field Trip', date: '', location: '', imageFile: null }); }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Activities grid */}
+      {activities.length === 0 ? (
+        <div style={{
+          textAlign: 'center', padding: '40px',
+          background: '#f8f9fa', borderRadius: '12px'
+        }}>
+          <Microscope size={48} color="#1769aa" />
+          <h3 style={{ color: '#102a43', marginTop: '15px' }}>No Activities Yet</h3>
+          <p style={{ color: '#66788a' }}>
+            {isStaff ? 'Click "Post New Activity" to add the first one.' : 'Check back later.'}
+          </p>
+        </div>
+      ) : (
+        <div className="activityGrid" style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+          gap: '20px'
+        }}>
+          {activities.map(a => (
+            <article key={a.id} style={{
+              background: 'white',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              border: '1px solid #dbe4ec',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              display: 'flex',
+              flexDirection: 'column'
+            }}>
+              {a.image_url ? (
+                <img
+                  src={a.image_url} alt={a.title}
+                  style={{ width: '100%', height: '200px', objectFit: 'cover' }}
+                />
+              ) : (
+                <div style={{
+                  width: '100%', height: '200px',
+                  background: 'linear-gradient(135deg, #1a3a5c, #1769aa)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: 'white', fontSize: '42px'
+                }}>
+                  📷
+                </div>
+              )}
+
+              <div style={{ padding: '18px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '8px' }}>
+                  <span style={{
+                    background: '#1769aa', color: 'white',
+                    padding: '2px 10px', borderRadius: '12px',
+                    fontSize: '11px', fontWeight: '600'
+                  }}>{a.category}</span>
+                  {a.activity_date && (
+                    <small style={{ color: '#66788a' }}>📅 {a.activity_date}</small>
+                  )}
+                </div>
+
+                <h3 style={{ margin: '4px 0 8px', color: '#102a43', fontSize: '17px' }}>{a.title}</h3>
+
+                {a.location && (
+                  <p style={{ color: '#66788a', fontSize: '12px', margin: '0 0 8px' }}>
+                    📍 {a.location}
+                  </p>
+                )}
+
+                <p style={{ color: '#444', fontSize: '14px', lineHeight: '1.6', flex: 1 }}>
+                  {a.description}
+                </p>
+
+                <p style={{ fontSize: '11px', color: '#999', marginTop: '12px' }}>
+                  Posted by {a.uploaded_by} {a.created_at ? `• ${new Date(a.created_at).toLocaleDateString()}` : ''}
+                </p>
+
+                {isStaff && user.id === a.user_id && (
+                  <button
+                    className="secondary"
+                    onClick={() => del(a.id)}
+                    style={{ marginTop: '10px', color: '#dc3545' }}
+                  >
+                    🗑️ Delete
+                  </button>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+
+    </Page>
+  );
+}
 function Resources({navigate}){return <Page title="Resources" kicker="LEARNING"><div className="resourceGrid">{[{t:"Lecture Notes"},{t:"Video Lectures"},{t:"Audio"},{t:"Maps"}].map(x=><article className="resource" key={x.t}><h3>{x.t}</h3><button className="secondary" onClick={()=>navigate("courses")}>Browse</button></article>)}</div></Page>}
 function Contact(){return <Page title="Contact" kicker="GET IN TOUCH"><div><h2>Department of Geology</h2><p>Debre Markos University, Ethiopia</p></div></Page>}
 
