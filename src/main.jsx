@@ -1558,7 +1558,6 @@ function Staff({ profilePic, saveProfilePic, removeProfilePic, user, meta }) {
             textAlign: 'center'
           }}>
             <div className="avatar" style={{
-              display: 'inline-block',
               width: '74px',
               height: '74px',
               borderRadius: '50%',
