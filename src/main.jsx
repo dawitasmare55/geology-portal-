@@ -643,17 +643,13 @@ function Activities({ user, meta }) {
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
-    title: '',
-    description: '',
-    category: 'Field Trip',
-    date: '',
-    location: '',
-    imageFile: null,
+    title: '', description: '', category: 'Field Trip',
+    date: '', location: '', imageFile: null,
   });
 
   const isStaff = meta?.role === 'staff';
 
-  // Load activities
+  // Load uploaded activities
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from('activities')
@@ -666,11 +662,9 @@ function Activities({ user, meta }) {
   const submit = async () => {
     if (!form.title.trim()) return alert('Please enter a title.');
     if (!form.imageFile) return alert('Please choose an image.');
-
     setBusy(true);
     const up = await uploadToStorage('activity-images', form.imageFile);
     if (!up) { setBusy(false); return alert('Image upload failed.'); }
-
     const row = {
       title: form.title.trim(),
       description: form.description.trim(),
@@ -681,11 +675,9 @@ function Activities({ user, meta }) {
       uploaded_by: meta?.name,
       user_id: user.id,
     };
-
     const { data, error } = await supabase.from('activities').insert([row]).select();
     setBusy(false);
     if (error) return alert(error.message);
-
     if (data) setActivities(prev => [...data, ...prev]);
     setForm({ title: '', description: '', category: 'Field Trip', date: '', location: '', imageFile: null });
     setShowForm(false);
@@ -698,21 +690,84 @@ function Activities({ user, meta }) {
     setActivities(prev => prev.filter(a => a.id !== id));
   };
 
+  // The 6 fixed category cards — always shown
+  const staticCategories = [
+    { label: 'Field Trips', icon: '🚌' },
+    { label: 'Seminars', icon: '🎤' },
+    { label: 'Lab Training', icon: '🔬' },
+    { label: 'Community Service', icon: '🤝' },
+    { label: 'Workshops', icon: '🛠️' },
+    { label: 'Industrial Visits', icon: '🏭' },
+  ];
+
   return (
     <Page title="Department Activities" kicker="ENGAGEMENT">
 
-      {/* Post button (staff only) */}
-      {isStaff && (
-        <button
-          className="primary"
-          onClick={() => setShowForm(!showForm)}
-          style={{ background: '#28a745', marginBottom: '20px' }}
-        >
-          {showForm ? '📕 Close Form' : '📝 Post New Activity'}
-        </button>
-      )}
+      {/* ===== STATIC CATEGORY CARDS (always visible) ===== */}
+      <div className="activityGrid" style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+        gap: '20px',
+        marginBottom: '40px'
+      }}>
+        {staticCategories.map((c, i) => (
+          <article className="activity" key={c.label} style={{
+            background: 'white',
+            border: '1px solid #dbe4ec',
+            borderRadius: '12px',
+            padding: '25px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+          }}>
+            <div className="activityNo" style={{
+              fontSize: '42px',
+              fontWeight: '800',
+              color: '#dbe4ec',
+              lineHeight: 1
+            }}>
+              {String(i + 1).padStart(2, '0')}
+            </div>
+            <h3 style={{ margin: '15px 0 5px', color: '#102a43', fontSize: '18px' }}>
+              {c.icon} {c.label}
+            </h3>
+            <p style={{ color: '#66788a', fontSize: '14px', margin: 0 }}>
+              Department activity, training and academic engagement.
+            </p>
+          </article>
+        ))}
+      </div>
 
-      {/* Form (staff only) */}
+      {/* ===== HEADER FOR UPLOADED ACTIVITIES ===== */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '10px',
+        marginBottom: '20px',
+        paddingBottom: '15px',
+        borderBottom: '2px solid #dbe4ec'
+      }}>
+        <div>
+          <div className="eyebrow" style={{ color: '#c99a2e', fontSize: '11px', fontWeight: '800', letterSpacing: '2px' }}>
+            RECENT ACTIVITIES
+          </div>
+          <h2 style={{ margin: '8px 0 0', color: '#102a43' }}>
+            Department Activities ({activities.length})
+          </h2>
+        </div>
+
+        {isStaff && (
+          <button
+            className="primary"
+            onClick={() => setShowForm(!showForm)}
+            style={{ background: '#28a745' }}
+          >
+            {showForm ? '📕 Close Form' : '📝 Post New Activity'}
+          </button>
+        )}
+      </div>
+
+      {/* ===== POST FORM (staff only) ===== */}
       {isStaff && showForm && (
         <div style={{
           background: '#f8f9fa', padding: '20px',
@@ -724,21 +779,17 @@ function Activities({ user, meta }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
             <div style={{ gridColumn: 'span 2' }}>
               <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Title *</label>
-              <input
-                type="text" value={form.title}
+              <input type="text" value={form.title}
                 onChange={e => setForm({ ...form, title: e.target.value })}
                 placeholder="e.g. Geological Field Trip to the Blue Nile Gorge"
-                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}
-              />
+                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
             </div>
 
             <div>
               <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Category</label>
-              <select
-                value={form.category}
+              <select value={form.category}
                 onChange={e => setForm({ ...form, category: e.target.value })}
-                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}
-              >
+                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}>
                 <option>Field Trip</option>
                 <option>Lab Training</option>
                 <option>Seminar</option>
@@ -751,74 +802,66 @@ function Activities({ user, meta }) {
 
             <div>
               <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Date</label>
-              <input
-                type="date" value={form.date}
+              <input type="date" value={form.date}
                 onChange={e => setForm({ ...form, date: e.target.value })}
-                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}
-              />
+                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
             </div>
 
             <div style={{ gridColumn: 'span 2' }}>
               <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Location</label>
-              <input
-                type="text" value={form.location}
+              <input type="text" value={form.location}
                 onChange={e => setForm({ ...form, location: e.target.value })}
                 placeholder="e.g. Blue Nile Gorge, Dejen"
-                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}
-              />
+                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
             </div>
 
             <div style={{ gridColumn: 'span 2' }}>
               <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Description</label>
-              <textarea
-                value={form.description} rows="4"
+              <textarea value={form.description} rows="4"
                 onChange={e => setForm({ ...form, description: e.target.value })}
                 placeholder="What happened? Who attended?"
-                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}
-              />
+                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
             </div>
 
             <div style={{ gridColumn: 'span 2' }}>
               <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Photo *</label>
-              <input
-                type="file" accept="image/*"
+              <input type="file" accept="image/*"
                 onChange={e => setForm({ ...form, imageFile: e.target.files[0] })}
-                style={{ padding: '8px' }}
-              />
+                style={{ padding: '8px' }} />
             </div>
           </div>
 
           <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
-            <button
-              className="primary" onClick={submit} disabled={busy}
-              style={{ background: '#28a745' }}
-            >
+            <button className="primary" onClick={submit} disabled={busy} style={{ background: '#28a745' }}>
               {busy ? 'Uploading...' : '✅ Publish Activity'}
             </button>
-            <button
-              className="secondary"
-              onClick={() => { setShowForm(false); setForm({ title: '', description: '', category: 'Field Trip', date: '', location: '', imageFile: null }); }}
-            >
+            <button className="secondary"
+              onClick={() => {
+                setShowForm(false);
+                setForm({ title: '', description: '', category: 'Field Trip', date: '', location: '', imageFile: null });
+              }}>
               Cancel
             </button>
           </div>
         </div>
       )}
 
-      {/* Activities grid */}
+      {/* ===== UPLOADED ACTIVITIES ===== */}
       {activities.length === 0 ? (
         <div style={{
           textAlign: 'center', padding: '40px',
           background: '#f8f9fa', borderRadius: '12px'
         }}>
           <Microscope size={48} color="#1769aa" />
-          <h3 style={{ color: '#102a43', marginTop: '15px' }}>No Activities Yet</h3>
+          <h3 style={{ color: '#102a43', marginTop: '15px' }}>No Activities Posted Yet</h3>
           <p style={{ color: '#66788a' }}>
-            {isStaff ? 'Click "Post New Activity" to add the first one.' : 'Check back later.'}
+            {isStaff
+              ? 'Click "Post New Activity" above to share a field trip, seminar, or workshop with photos.'
+              : 'Check back later for upcoming and past department activities.'}
           </p>
         </div>
       ) : (
-        <div className="activityGrid" style={{
+        <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
           gap: '20px'
@@ -834,19 +877,15 @@ function Activities({ user, meta }) {
               flexDirection: 'column'
             }}>
               {a.image_url ? (
-                <img
-                  src={a.image_url} alt={a.title}
-                  style={{ width: '100%', height: '200px', objectFit: 'cover' }}
-                />
+                <img src={a.image_url} alt={a.title}
+                  style={{ width: '100%', height: '200px', objectFit: 'cover' }} />
               ) : (
                 <div style={{
                   width: '100%', height: '200px',
                   background: 'linear-gradient(135deg, #1a3a5c, #1769aa)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   color: 'white', fontSize: '42px'
-                }}>
-                  📷
-                </div>
+                }}>📷</div>
               )}
 
               <div style={{ padding: '18px', flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -878,11 +917,8 @@ function Activities({ user, meta }) {
                 </p>
 
                 {isStaff && user.id === a.user_id && (
-                  <button
-                    className="secondary"
-                    onClick={() => del(a.id)}
-                    style={{ marginTop: '10px', color: '#dc3545' }}
-                  >
+                  <button className="secondary" onClick={() => del(a.id)}
+                    style={{ marginTop: '10px', color: '#dc3545' }}>
                     🗑️ Delete
                   </button>
                 )}
