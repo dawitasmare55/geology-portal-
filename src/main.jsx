@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import "./styles.css";
 import { supabase } from './supabaseClient';
+import * as XLSX from 'xlsx';
 
 // ============================================
 // UPLOAD / DELETE helpers
@@ -1060,11 +1061,17 @@ function ExamSystem({ user, meta }) {
   const [editingId, setEditingId] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [duration, setDuration] = useState(30);
+  const [courseCode, setCourseCode] = useState('');
+  const [courseName, setCourseName] = useState('');
+  const [examType, setExamType] = useState('Midterm');
+  const [targetYear, setTargetYear] = useState(2);
   const [currentExam, setCurrentExam] = useState(null);
   const [qIndex, setQIndex] = useState(0);
   const [answers, setAnswers] = useState({});
   const [timeLeft, setTimeLeft] = useState(null);
   const [submitted, setSubmitted] = useState(false);
+  const [startTime, setStartTime] = useState(null);
+  const [filterYear, setFilterYear] = useState('all');
 
   const isStaff = meta?.role === 'staff';
   const isStudent = meta?.role === 'student';
@@ -1087,59 +1094,135 @@ function ExamSystem({ user, meta }) {
     return () => clearInterval(t);
   }, [currentExam, timeLeft, submitted]);
 
-  const addQ = () => { const nid = Math.max(...questions.map(q=>q.id)) + 1; setQuestions([...questions, {id:nid,text:'',choices:['','','',''],correctAnswer:'',points:1}]); };
+  const addQ = () => {
+    const nid = Math.max(...questions.map(q => q.id)) + 1;
+    setQuestions([...questions, { id: nid, text: '', choices: ['','','',''], correctAnswer: '', points: 1 }]);
+  };
   const rmQ = (id) => { if (questions.length > 1) setQuestions(questions.filter(q => q.id !== id)); };
-  const updQ = (id,f,v) => setQuestions(questions.map(q => q.id===id ? {...q,[f]:v} : q));
-  const updC = (qid,ci,v) => setQuestions(questions.map(q => q.id===qid ? {...q, choices: q.choices.map((c,i)=>i===ci?v:c)} : q));
+  const updQ = (id, f, v) => setQuestions(questions.map(q => q.id === id ? { ...q, [f]: v } : q));
+  const updC = (qid, ci, v) => setQuestions(questions.map(q => q.id === qid ? { ...q, choices: q.choices.map((c, i) => i === ci ? v : c) } : q));
 
   const saveExam = async () => {
-    if (!title.trim()) return alert('Enter title.');
-    const row = { title: title.trim(), duration, released: false, questions, user_id: user.id };
+    if (!title.trim()) return alert('Enter exam title.');
+    if (!courseCode.trim()) return alert('Enter course code.');
+    if (!courseName.trim()) return alert('Enter course name.');
+    if (!targetYear) return alert('Choose target year.');
+    const row = {
+      title: title.trim(), duration, released: false, questions,
+      course_code: courseCode.trim(), course_name: courseName.trim(),
+      exam_type: examType, target_year: targetYear, user_id: user.id,
+    };
     if (editingId) await supabase.from('exams').update(row).eq('id', editingId);
     else await supabase.from('exams').insert([row]);
-    resetForm(); refresh(); alert('✅ Saved!');
+    resetForm(); refresh();
+    alert('✅ Exam saved!');
   };
-  const resetForm = () => { setTitle(''); setQuestions([{id:1,text:'',choices:['','','',''],correctAnswer:'',points:1}]); setEditingId(null); setShowForm(false); };
-  const editE = (e) => { setEditingId(e.id); setTitle(e.title); setDuration(e.duration); setQuestions(e.questions||[]); setShowForm(true); };
-  const delE = async (id) => { if (confirm('Delete?')) { await supabase.from('exams').delete().eq('id', id); refresh(); } };
-  const relE = async (id, v) => { await supabase.from('exams').update({ released: v }).eq('id', id); refresh(); };
+
+  const resetForm = () => {
+    setTitle(''); setQuestions([{ id: 1, text: '', choices: ['','','',''], correctAnswer: '', points: 1 }]);
+    setEditingId(null); setShowForm(false);
+    setCourseCode(''); setCourseName(''); setExamType('Midterm'); setTargetYear(2);
+  };
+
+  const editE = (e) => {
+    setEditingId(e.id);
+    setTitle(e.title); setDuration(e.duration || 30);
+    setQuestions(e.questions || []);
+    setCourseCode(e.course_code || '');
+    setCourseName(e.course_name || '');
+    setExamType(e.exam_type || 'Midterm');
+    setTargetYear(e.target_year || 2);
+    setShowForm(true);
+  };
+
+  const delE = async (id) => {
+    if (confirm('Delete this exam?')) {
+      await supabase.from('exams').delete().eq('id', id);
+      refresh();
+    }
+  };
+
+  const relE = async (id, v) => {
+    await supabase.from('exams').update({ released: v }).eq('id', id);
+    refresh();
+  };
 
   const startExam = async (exam) => {
     const { data } = await supabase.from('exam_progress').select('*').eq('user_id', user.id).eq('exam_id', exam.id).maybeSingle();
-    setCurrentExam(exam); setSubmitted(false); setQIndex(0); setAnswers({});
+    setCurrentExam(exam);
+    setSubmitted(false); setQIndex(0); setAnswers({});
+    setStartTime(Date.now());
     if (data) {
       setAnswers(data.answers || {});
       setQIndex(data.current_index || 0);
       setTimeLeft(data.time_left || exam.duration * 60);
     } else {
       setTimeLeft(exam.duration * 60);
-      await supabase.from('exam_progress').insert([{ user_id: user.id, student: meta?.name, exam_id: exam.id, answers: {}, current_index: 0, time_left: exam.duration * 60 }]);
+      await supabase.from('exam_progress').insert([{
+        user_id: user.id, student: meta?.name,
+        exam_id: exam.id, answers: {}, current_index: 0,
+        time_left: exam.duration * 60
+      }]);
     }
   };
 
   useEffect(() => {
     if (!currentExam || submitted) return;
     const t = setInterval(async () => {
-      await supabase.from('exam_progress').upsert({ user_id: user.id, student: meta?.name, exam_id: currentExam.id, answers, current_index: qIndex, time_left: timeLeft }, { onConflict: 'user_id,exam_id' });
+      await supabase.from('exam_progress').upsert({
+        user_id: user.id, student: meta?.name,
+        exam_id: currentExam.id,
+        answers, current_index: qIndex, time_left: timeLeft
+      }, { onConflict: 'user_id,exam_id' });
     }, 5000);
     return () => clearInterval(t);
   }, [currentExam, answers, qIndex, timeLeft, submitted]);
+
+  const computeGrade = (pct) => {
+    if (pct >= 90) return 'A+';
+    if (pct >= 85) return 'A';
+    if (pct >= 80) return 'A-';
+    if (pct >= 75) return 'B+';
+    if (pct >= 70) return 'B';
+    if (pct >= 65) return 'B-';
+    if (pct >= 60) return 'C+';
+    if (pct >= 50) return 'C';
+    if (pct >= 45) return 'D';
+    return 'F';
+  };
 
   const doSubmit = async (auto = false) => {
     if (submitted) return;
     const total = currentExam.questions.length;
     const answered = Object.keys(answers).length;
     if (!auto && answered < total && !confirm(`Answered ${answered}/${total}. Submit anyway?`)) return;
-    let totalPts = 0, earned = 0, correct = 0;
+    let totalPts = 0, earned = 0, correct = 0, wrong = 0;
     currentExam.questions.forEach(q => {
       const p = q.points || 1;
       totalPts += p;
       if (answers[q.id] === q.correctAnswer) { correct++; earned += p; }
+      else if (answers[q.id] != null) { wrong++; }
     });
+    const unanswered = total - correct - wrong;
     const pct = Math.round((earned / totalPts) * 100);
+    const grade = computeGrade(pct);
+    const status = pct >= 50 ? 'Passed' : 'Failed';
+    const timeTaken = currentExam.duration * 60 - (timeLeft || 0);
+
+    const { count } = await supabase.from('exam_results')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('exam_id', currentExam.id);
+    const attempt = (count || 0) + 1;
+
     await supabase.from('exam_results').insert([{
-      exam_id: currentExam.id, exam_title: currentExam.title, student: meta?.name,
-      score: pct, correct, total, total_points: totalPts, earned_points: earned,
+      exam_id: currentExam.id, exam_title: currentExam.title,
+      student: meta?.name, student_id: meta?.student_id, student_year: meta?.year,
+      course_code: currentExam.course_code, course_name: currentExam.course_name,
+      exam_type: currentExam.exam_type,
+      score: pct, correct, total, wrong, unanswered,
+      total_points: totalPts, earned_points: earned,
+      grade, status, time_taken: timeTaken, attempt_number: attempt,
       answers, user_id: user.id
     }]);
     await supabase.from('exam_progress').delete().eq('user_id', user.id).eq('exam_id', currentExam.id);
@@ -1147,18 +1230,78 @@ function ExamSystem({ user, meta }) {
     setTimeout(() => { setCurrentExam(null); setSubmitted(false); refresh(); }, 2000);
   };
 
-  const fmt = (s) => { if (s === null) return '--:--'; const m = Math.floor(s/60); const x = s%60; return `${m}:${x.toString().padStart(2,'0')}`; };
+  const fmt = (s) => {
+    if (s === null || s === undefined) return '--:--';
+    const m = Math.floor(s / 60); const x = s % 60;
+    return `${m}:${x.toString().padStart(2,'0')}`;
+  };
+  const fmtTime = (sec) => {
+    if (!sec) return '0m 0s';
+    const m = Math.floor(sec / 60); const s = sec % 60;
+    return `${m}m ${s}s`;
+  };
 
+  // ============ EXCEL EXPORT ============
+  const downloadExcel = () => {
+    const rows = (filterYear === 'all'
+      ? results
+      : results.filter(r => r.student_year === filterYear)
+    ).map((r, i) => ({
+      '#': i + 1,
+      'Student Name': r.student || '',
+      'Student ID': r.student_id || '',
+      'Year / Batch': r.student_year ? `Year ${r.student_year}` : '',
+      'Course Code': r.course_code || '',
+      'Course Name': r.course_name || '',
+      'Exam Title': r.exam_title || '',
+      'Exam Date': r.submitted_at ? new Date(r.submitted_at).toLocaleDateString() : '',
+      'Total Questions': r.total || 0,
+      'Correct Answers': r.correct || 0,
+      'Wrong Answers': r.wrong || 0,
+      'Unanswered': r.unanswered || 0,
+      'Score': `${r.earned_points || 0} / ${r.total_points || 0}`,
+      'Percentage': `${r.score || 0}%`,
+      'Grade': r.grade || '',
+      'Status': r.status || '',
+      'Time Taken': fmtTime(r.time_taken),
+      'Attempt Number': r.attempt_number || 1,
+      'Submitted At': r.submitted_at ? new Date(r.submitted_at).toLocaleString() : ''
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    worksheet['!cols'] = [
+      { wch: 4 }, { wch: 22 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 28 },
+      { wch: 18 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 },
+      { wch: 14 }, { wch: 12 }, { wch: 8 }, { wch: 10 }, { wch: 12 }, { wch: 10 },
+      { wch: 20 }
+    ];
+    const workbook = XLSX.utils.book_new();
+    const sheetName = filterYear === 'all' ? 'All Results' : `Year ${filterYear}`;
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+
+    const timestamp = new Date().toISOString().slice(0,10);
+    XLSX.writeFile(workbook, `exam_results_${sheetName.replace(/\s/g,'_')}_${timestamp}.xlsx`);
+  };
+
+  // ============ STUDENT TAKING EXAM ============
   if (currentExam && isStudent && !submitted) {
     const q = currentExam.questions[qIndex];
     return (
       <div style={{ marginTop: '30px', background: 'white', padding: '25px', borderRadius: '12px' }}>
         <h3>{currentExam.title}</h3>
+        <p style={{ color: '#66788a' }}>
+          {currentExam.course_code} — {currentExam.course_name} • {currentExam.exam_type}
+        </p>
         <p>Q {qIndex+1}/{currentExam.questions.length} • ⏱️ {fmt(timeLeft)}</p>
         <p style={{ fontSize: '18px' }}>{q.text}</p>
         {q.choices.map((c,i) => (
-          <label key={i} style={{ display: 'block', padding: '10px', margin: '5px 0', border: answers[q.id]===c?'2px solid #1769aa':'1px solid #dbe4ec', borderRadius: '6px' }}>
-            <input type="radio" checked={answers[q.id]===c} onChange={()=>setAnswers(a=>({...a,[q.id]:c}))}/> {c}
+          <label key={i} style={{
+            display: 'block', padding: '10px', margin: '5px 0',
+            border: answers[q.id]===c ? '2px solid #1769aa' : '1px solid #dbe4ec',
+            borderRadius: '6px', cursor: 'pointer'
+          }}>
+            <input type="radio" checked={answers[q.id]===c}
+              onChange={()=>setAnswers(a=>({...a,[q.id]:c}))}/> {c}
           </label>
         ))}
         <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
@@ -1169,56 +1312,241 @@ function ExamSystem({ user, meta }) {
       </div>
     );
   }
-  if (submitted) return <div style={{textAlign:'center',padding:'40px'}}><h2>✅ Submitted!</h2></div>;
 
+  if (submitted) {
+    return (
+      <div style={{textAlign:'center',padding:'40px',background:'white',borderRadius:'12px'}}>
+        <h2 style={{color:'#28a745'}}>✅ Exam Submitted!</h2>
+        <p style={{color:'#66788a'}}>Your answers are saved. Staff can now see your result.</p>
+      </div>
+    );
+  }
+
+  // ============ FILTERED RESULTS ============
+  const filteredResults = filterYear === 'all'
+    ? results
+    : results.filter(r => r.student_year === filterYear);
+
+  // ============ MAIN VIEW ============
   return (
     <div style={{ marginTop: '40px', padding: '20px', background: 'white', borderRadius: '12px' }}>
-      <h2>📋 Exam System</h2>
+      <h2 style={{ color: '#102a43' }}>📋 Exam System</h2>
+
       {!user ? <p>Please login.</p> : (
         <>
           {isStaff && (
             <div>
-              <button className="primary" onClick={()=>setShowForm(!showForm)} style={{marginBottom:'20px'}}>{showForm?'📕 Close':'📝 Create Exam'}</button>
+              <button className="primary" onClick={()=>setShowForm(!showForm)} style={{marginBottom:'20px'}}>
+                {showForm ? '📕 Close' : '📝 Create Exam'}
+              </button>
+
               {showForm && (
                 <div style={{background:'#f8f9fa',padding:'20px',borderRadius:'12px',marginBottom:'20px'}}>
-                  <input type="text" value={title} onChange={e=>setTitle(e.target.value)} placeholder="Title" style={{width:'100%',padding:'10px',marginBottom:'8px'}}/>
-                  <input type="number" value={duration} onChange={e=>setDuration(parseInt(e.target.value)||30)} placeholder="Duration" style={{width:'100px',padding:'10px',marginBottom:'8px'}}/>
+                  <h3>New Exam</h3>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'10px'}}>
+                    <div>
+                      <label style={{fontSize:'13px',fontWeight:'600'}}>Exam Title</label>
+                      <input type="text" value={title} onChange={e=>setTitle(e.target.value)}
+                        placeholder="e.g. Midterm Exam"
+                        style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #ccc'}}/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:'13px',fontWeight:'600'}}>Exam Type</label>
+                      <select value={examType} onChange={e=>setExamType(e.target.value)}
+                        style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #ccc'}}>
+                        <option>Midterm</option><option>Final</option><option>Quiz</option>
+                        <option>Assignment</option><option>Practical</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{fontSize:'13px',fontWeight:'600'}}>Course Code</label>
+                      <input type="text" value={courseCode} onChange={e=>setCourseCode(e.target.value)}
+                        placeholder="e.g. Geol 2011"
+                        style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #ccc'}}/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:'13px',fontWeight:'600'}}>Course Name</label>
+                      <input type="text" value={courseName} onChange={e=>setCourseName(e.target.value)}
+                        placeholder="e.g. General Geology"
+                        style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #ccc'}}/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:'13px',fontWeight:'600'}}>Target Year (batch)</label>
+                      <select value={targetYear} onChange={e=>setTargetYear(parseInt(e.target.value))}
+                        style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #ccc'}}>
+                        <option value={1}>Year 1</option><option value={2}>Year 2</option>
+                        <option value={3}>Year 3</option><option value={4}>Year 4</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{fontSize:'13px',fontWeight:'600'}}>Duration (min)</label>
+                      <input type="number" value={duration} onChange={e=>setDuration(parseInt(e.target.value)||30)}
+                        style={{width:'100%',padding:'8px',borderRadius:'6px',border:'1px solid #ccc'}}/>
+                    </div>
+                  </div>
+                  <hr style={{margin:'15px 0'}}/>
                   {questions.map((q,qi)=>(
                     <div key={q.id} style={{background:'white',padding:'12px',marginBottom:'8px',borderRadius:'6px'}}>
                       <strong>Q{qi+1}</strong>
-                      <input type="text" value={q.text} onChange={e=>updQ(q.id,'text',e.target.value)} placeholder="Question" style={{width:'100%',padding:'8px',marginTop:'5px'}}/>
-                      {q.choices.map((c,ci)=>(<input key={ci} type="text" value={c} onChange={e=>updC(q.id,ci,e.target.value)} placeholder={`Choice ${ci+1}`} style={{width:'100%',padding:'8px',marginTop:'5px'}}/>))}
-                      <input type="text" value={q.correctAnswer} onChange={e=>updQ(q.id,'correctAnswer',e.target.value)} placeholder="Correct answer (must match a choice)" style={{width:'100%',padding:'8px',marginTop:'5px'}}/>
+                      <input type="text" value={q.text} onChange={e=>updQ(q.id,'text',e.target.value)}
+                        placeholder="Question text" style={{width:'100%',padding:'8px',marginTop:'5px'}}/>
+                      {q.choices.map((c,ci)=>(
+                        <input key={ci} type="text" value={c} onChange={e=>updC(q.id,ci,e.target.value)}
+                          placeholder={`Choice ${ci+1}`} style={{width:'100%',padding:'8px',marginTop:'5px'}}/>
+                      ))}
+                      <input type="text" value={q.correctAnswer}
+                        onChange={e=>updQ(q.id,'correctAnswer',e.target.value)}
+                        placeholder="Correct answer (must match a choice)"
+                        style={{width:'100%',padding:'8px',marginTop:'5px'}}/>
+                      <input type="number" value={q.points||1}
+                        onChange={e=>updQ(q.id,'points',parseInt(e.target.value)||1)}
+                        placeholder="Points" min="1" style={{width:'80px',padding:'8px',marginTop:'5px'}}/>
                     </div>
                   ))}
                   <button className="secondary" onClick={addQ}>+ Question</button>
-                  <button className="primary" onClick={saveExam} style={{marginLeft:'10px'}}>{editingId?'Update':'Create'}</button>
+                  <button className="primary" onClick={saveExam} style={{marginLeft:'10px'}}>
+                    {editingId?'Update':'Create'}
+                  </button>
                 </div>
               )}
+
               <h3>Manage Exams</h3>
-              {exams.map(e=>(
-                <div key={e.id} style={{padding:'12px',border:'1px solid #dbe4ec',borderRadius:'6px',marginBottom:'8px'}}>
-                  <strong>{e.title}</strong> {e.released?'✅':'🔒'}
-                  <div style={{marginTop:'6px',display:'flex',gap:'6px',flexWrap:'wrap'}}>
-                    <button className="secondary" onClick={()=>editE(e)}>Edit</button>
-                    <button className="secondary" onClick={()=>delE(e.id)} style={{color:'#dc3545'}}>Delete</button>
-                    <button className={e.released?'secondary':'primary'} onClick={()=>relE(e.id,!e.released)} style={{background:e.released?'#ffc107':'#28a745',color:e.released?'#333':'white'}}>{e.released?'Unrelease':'Release'}</button>
+              {exams.length === 0 && <p style={{color:'#66788a'}}>No exams created yet.</p>}
+              {exams.map(e => (
+                <div key={e.id} style={{padding:'15px',border:'1px solid #dbe4ec',borderRadius:'8px',marginBottom:'10px'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',flexWrap:'wrap',gap:'10px'}}>
+                    <div>
+                      <strong>{e.title}</strong> {e.released?'✅ Released':'🔒 Draft'}
+                      <p style={{margin:'4px 0',color:'#66788a',fontSize:'13px'}}>
+                        {e.course_code} — {e.course_name} • {e.exam_type} • Year {e.target_year}
+                      </p>
+                    </div>
+                    <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
+                      <button className="secondary" onClick={()=>editE(e)}>Edit</button>
+                      <button className="secondary" onClick={()=>delE(e.id)} style={{color:'#dc3545'}}>Delete</button>
+                      <button className={e.released?'secondary':'primary'}
+                        onClick={()=>relE(e.id,!e.released)}
+                        style={{background:e.released?'#ffc107':'#28a745',color:e.released?'#333':'white'}}>
+                        {e.released?'Unrelease':'Release'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
-              <h3>Results</h3>
-              {results.map(r=>(<div key={r.id} style={{padding:'8px',border:'1px solid #dbe4ec',borderRadius:'6px',marginBottom:'4px'}}><strong>{r.student}</strong> — {r.exam_title} — {r.score}%</div>))}
             </div>
           )}
+
           {isStudent && (
             <div>
-              <h3>Available Exams</h3>
-              {exams.filter(e=>e.released).map(e=>(
-                <div key={e.id} style={{padding:'12px',border:'1px solid #dbe4ec',borderRadius:'6px',marginBottom:'8px'}}>
+              <h3>📚 Available Exams for Year {meta?.year}</h3>
+              {exams.filter(e => e.released && e.target_year === meta?.year).length === 0 && (
+                <p style={{color:'#66788a'}}>No exams released for your year yet.</p>
+              )}
+              {exams.filter(e => e.released && e.target_year === meta?.year).map(e => (
+                <div key={e.id} style={{padding:'15px',border:'1px solid #dbe4ec',borderRadius:'8px',marginBottom:'10px'}}>
                   <strong>{e.title}</strong>
-                  <button className="primary" onClick={()=>startExam(e)} style={{marginLeft:'15px'}}>Start</button>
+                  <p style={{margin:'4px 0',color:'#66788a',fontSize:'13px'}}>
+                    {e.course_code} — {e.course_name} • {e.exam_type} • {e.questions?.length} questions • {e.duration} min
+                  </p>
+                  <button className="primary" onClick={()=>startExam(e)} style={{marginTop:'8px'}}>Start Exam</button>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* ============ RESULTS TABLE ============ */}
+          {(isStaff || isStudent) && (
+            <div style={{marginTop:'40px'}}>
+              <div style={{
+                display:'flex', justifyContent:'space-between',
+                alignItems:'center', flexWrap:'wrap', gap:'10px',
+                marginBottom:'15px'
+              }}>
+                <h3 style={{margin:0}}>📊 Exam Results ({filteredResults.length})</h3>
+
+                {isStaff && (
+                  <div style={{display:'flex', gap:'8px', alignItems:'center', flexWrap:'wrap'}}>
+                    <select value={filterYear} onChange={e=>setFilterYear(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
+                      style={{padding:'8px', borderRadius:'6px', border:'1px solid #ccc'}}>
+                      <option value="all">All Years</option>
+                      <option value={1}>Year 1</option>
+                      <option value={2}>Year 2</option>
+                      <option value={3}>Year 3</option>
+                      <option value={4}>Year 4</option>
+                    </select>
+
+                    <button className="primary" onClick={downloadExcel}
+                      style={{background:'#17a2b8', display:'inline-flex', alignItems:'center', gap:'6px'}}>
+                      <Download size={16}/> Download Excel
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {filteredResults.length === 0 ? (
+                <p style={{color:'#66788a'}}>No results submitted yet.</p>
+              ) : (
+                <div style={{overflowX:'auto'}}>
+                  <table style={{width:'100%',borderCollapse:'collapse',fontSize:'13px',minWidth:'1900px'}}>
+                    <thead>
+                      <tr style={{background:'#102a43',color:'white'}}>
+                        <th style={{padding:'8px',textAlign:'left'}}>#</th>
+                        <th style={{padding:'8px',textAlign:'left'}}>Student Name</th>
+                        <th style={{padding:'8px',textAlign:'left'}}>Student ID</th>
+                        <th style={{padding:'8px',textAlign:'center'}}>Year</th>
+                        <th style={{padding:'8px',textAlign:'left'}}>Course Code</th>
+                        <th style={{padding:'8px',textAlign:'left'}}>Course Name</th>
+                        <th style={{padding:'8px',textAlign:'left'}}>Exam Title</th>
+                        <th style={{padding:'8px',textAlign:'left'}}>Date</th>
+                        <th style={{padding:'8px',textAlign:'center'}}>Total Q</th>
+                        <th style={{padding:'8px',textAlign:'center'}}>Correct</th>
+                        <th style={{padding:'8px',textAlign:'center'}}>Wrong</th>
+                        <th style={{padding:'8px',textAlign:'center'}}>Unans.</th>
+                        <th style={{padding:'8px',textAlign:'center'}}>Score</th>
+                        <th style={{padding:'8px',textAlign:'center'}}>%</th>
+                        <th style={{padding:'8px',textAlign:'center'}}>Grade</th>
+                        <th style={{padding:'8px',textAlign:'center'}}>Status</th>
+                        <th style={{padding:'8px',textAlign:'center'}}>Time Taken</th>
+                        <th style={{padding:'8px',textAlign:'center'}}>Attempt</th>
+                        <th style={{padding:'8px',textAlign:'left'}}>Submitted At</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredResults.map((r,i) => (
+                        <tr key={r.id} style={{borderBottom:'1px solid #e0e0e0'}}>
+                          <td style={{padding:'8px'}}>{i+1}</td>
+                          <td style={{padding:'8px'}}>{r.student}</td>
+                          <td style={{padding:'8px'}}>{r.student_id || '—'}</td>
+                          <td style={{padding:'8px',textAlign:'center'}}>{r.student_year || '—'}</td>
+                          <td style={{padding:'8px'}}>{r.course_code || '—'}</td>
+                          <td style={{padding:'8px'}}>{r.course_name || '—'}</td>
+                          <td style={{padding:'8px'}}>{r.exam_title}</td>
+                          <td style={{padding:'8px'}}>{r.submitted_at ? new Date(r.submitted_at).toLocaleDateString() : '—'}</td>
+                          <td style={{padding:'8px',textAlign:'center'}}>{r.total}</td>
+                          <td style={{padding:'8px',textAlign:'center',color:'#28a745'}}>{r.correct}</td>
+                          <td style={{padding:'8px',textAlign:'center',color:'#dc3545'}}>{r.wrong}</td>
+                          <td style={{padding:'8px',textAlign:'center'}}>{r.unanswered}</td>
+                          <td style={{padding:'8px',textAlign:'center'}}>{r.earned_points}/{r.total_points}</td>
+                          <td style={{padding:'8px',textAlign:'center',fontWeight:'bold',color: r.score>=50?'#28a745':'#dc3545'}}>{r.score}%</td>
+                          <td style={{padding:'8px',textAlign:'center',fontWeight:'bold'}}>{r.grade}</td>
+                          <td style={{padding:'8px',textAlign:'center'}}>
+                            <span style={{
+                              padding:'2px 8px',borderRadius:'10px',fontSize:'11px',
+                              background: r.status==='Passed'?'#d4edda':'#f8d7da',
+                              color: r.status==='Passed'?'#155724':'#721c24'
+                            }}>{r.status}</span>
+                          </td>
+                          <td style={{padding:'8px',textAlign:'center'}}>{fmtTime(r.time_taken)}</td>
+                          <td style={{padding:'8px',textAlign:'center'}}>{r.attempt_number || 1}</td>
+                          <td style={{padding:'8px',fontSize:'11px',color:'#66788a'}}>
+                            {r.submitted_at ? new Date(r.submitted_at).toLocaleString() : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </>
@@ -1226,7 +1554,6 @@ function ExamSystem({ user, meta }) {
     </div>
   );
 }
-
 // ============================================
 // STUDENT PORTAL
 // ============================================
