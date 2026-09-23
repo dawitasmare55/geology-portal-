@@ -1285,7 +1285,17 @@ function CourseModal({ course, close, uploadMaterial, materials, toggleLock, use
             <FileText size={20}/>
             <span style={{flex:1}}>{m.name}</span>
             {isStaff && user.id === m.user_id && (<label><input type="checkbox" checked={m.locked} onChange={() => toggleLock(course.id, m.id)} /> Lock</label>)}
-            {!m.locked && (<a href={m.url} target="_blank" rel="noreferrer" className="textBtn">Download</a>)}
+             {!m.locked && user && (
+             <a href={m.url} target="_blank" rel="noreferrer" className="textBtn">
+              Download
+            </a>
+          )}
+
+    {!m.locked && !user && (
+    <span style={{ color: '#66788a', fontSize: '12px', fontStyle: 'italic' }}>
+    Log in to download
+   </span>
+   )}
           </div>
         ))}
       </div>
