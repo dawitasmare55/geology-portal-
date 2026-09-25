@@ -444,7 +444,7 @@ function App(){
   </nav>
 </header>
 
-      {page==="homepage" && <Homepage navigate={navigate} activeCourses={activeCourses.length} students={42}/>}
+      {page==="homepage" && <Homepage navigate={navigate} activeCourses={activeCourses.length} students={42} user={user} meta={meta}/>}
       {page==="about" && <About user={user} meta={meta}/>}
       {page==="academics" && <Academics navigate={navigate} user={user} meta={meta}/>}
       {page==="courses" && <CoursesPage courses={filteredCourses} search={search} setSearch={setSearch} yearFilter={yearFilter} setYearFilter={setYearFilter} semesterFilter={semesterFilter} setSemesterFilter={setSemesterFilter} activeFilter={activeFilter} setActiveFilter={setActiveFilter} setSelectedCourse={setSelectedCourse} meta={meta}/>}
@@ -468,7 +468,7 @@ function App(){
   );
 }
 
-function Homepage({ navigate, activeCourses, students }) {
+function Homepage({ navigate, activeCourses, students, user, meta }) {
   const images = ['/Amethyst.jpg','/Opal.webp','/GERD.webp','/sapphire.avif','/bridge-over-blue-nile.webp','/choke mountains1.jpg','/choke mountains2.jpg','/my-background.jpg.jpg'];
   window.navigate = navigate;
   return (
@@ -481,14 +481,29 @@ function Homepage({ navigate, activeCourses, students }) {
         <Stat icon={<FileText/>} n="100+" label="Course Capacity"/>
       </section>
       <section className="section">
-        <SectionTitle kicker="WELCOME TO DMU GEOLOGY" title="A Center for Geological Education & Research"/>
-        <div className="cards four">
-          <Feature icon={<GraduationCap/>} title="Academic Programs" text="Explore our BSc geology curriculum." onClick={()=>navigate("academics")}/>
-          <Feature icon={<BookOpen/>} title="Courses & Materials" text="Access active courses and resources." onClick={()=>navigate("courses")}/>
-          <Feature icon={<Microscope/>} title="Research" text="Discover geological research." onClick={()=>navigate("research")}/>
-          <Feature icon={<Users/>} title="Our Students" text="Student services." onClick={()=>navigate("students")}/>
-        </div>
-      </section>
+  <div style={{
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+    gap: '40px',
+    alignItems: 'center',
+    marginBottom: '40px'
+  }}>
+    {/* LEFT: Video */}
+    <HomeVideo user={user} meta={meta} />
+
+    {/* RIGHT: Welcome text */}
+    <div>
+      <SectionTitle kicker="WELCOME TO DMU GEOLOGY" title="A Center for Geological Education & Research"/>
+    </div>
+  </div>
+
+  <div className="cards four">
+    <Feature icon={<GraduationCap/>} title="Academic Programs" text="Explore our BSc geology curriculum." onClick={()=>navigate("academics")}/>
+    <Feature icon={<BookOpen/>} title="Courses & Materials" text="Access active courses and resources." onClick={()=>navigate("courses")}/>
+    <Feature icon={<Microscope/>} title="Research" text="Discover geological research." onClick={()=>navigate("research")}/>
+    <Feature icon={<Users/>} title="Our Students" text="Student services." onClick={()=>navigate("students")}/>
+  </div>
+</section>
     </main>
   );
 }
@@ -3803,6 +3818,148 @@ function ForcePasswordChange({ meta, onChanged, onLogout }) {
           Cancel (Log out)
         </button>
       </div>
+    </div>
+  );
+}
+function HomeVideo({ user, meta }) {
+  const [videoUrl, setVideoUrl] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [caption, setCaption] = useState('');
+  const isStaff = meta?.role === 'staff';
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('home_video').select('*').eq('id', 1).maybeSingle();
+      if (data) {
+        setVideoUrl(data.video_url || '');
+        setCaption(data.caption || '');
+      }
+    })();
+  }, []);
+
+  const upload = async (file) => {
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) return alert('Video must be under 50MB.');
+    setBusy(true);
+    const up = await uploadToStorage('videos', file);
+    if (!up) { setBusy(false); return alert('Upload failed.'); }
+
+    const { error } = await supabase
+      .from('home_video')
+      .upsert({ id: 1, video_url: up.url, caption, updated_by: meta?.name }, { onConflict: 'id' });
+
+    setBusy(false);
+    if (error) return alert(error.message);
+    setVideoUrl(up.url);
+    alert('✅ Video uploaded!');
+  };
+
+  const saveCaption = async () => {
+    const { error } = await supabase
+      .from('home_video')
+      .upsert({ id: 1, video_url: videoUrl, caption, updated_by: meta?.name }, { onConflict: 'id' });
+    if (error) return alert(error.message);
+    alert('✅ Caption saved!');
+  };
+
+  const removeVideo = async () => {
+    if (!confirm('Remove video from homepage?')) return;
+    await supabase.from('home_video').upsert({ id: 1, video_url: null, caption }, { onConflict: 'id' });
+    setVideoUrl('');
+  };
+
+  return (
+    <div>
+      {videoUrl ? (
+        <>
+          <video
+            controls
+            style={{
+              width: '100%',
+              maxHeight: '420px',
+              borderRadius: '12px',
+              background: '#000',
+              display: 'block',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.08)'
+            }}
+            src={videoUrl}
+          >
+            Your browser does not support the video tag.
+          </video>
+          {caption && (
+            <p style={{
+              margin: '12px 0 0',
+              textAlign: 'center',
+              color: '#66788a',
+              fontSize: '14px',
+              fontStyle: 'italic'
+            }}>
+              {caption}
+            </p>
+          )}
+        </>
+      ) : (
+        <div style={{
+          textAlign: 'center',
+          padding: '60px 20px',
+          background: '#f8f9fa',
+          borderRadius: '12px',
+          border: '1px dashed #dbe4ec',
+          color: '#66788a'
+        }}>
+          <PlayCircle size={52} color="#1769aa" />
+          <h3 style={{ color: '#102a43', marginTop: '12px' }}>No video yet</h3>
+          <p style={{ margin: 0 }}>
+            {isStaff ? 'Upload a short video below to display it here.' : 'Check back later.'}
+          </p>
+        </div>
+      )}
+
+      {isStaff && (
+        <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #eef3f6' }}>
+          <h4 style={{ color: '#102a43', marginTop: 0, fontSize: '14px' }}>Manage Video</h4>
+
+          <div style={{ display: 'grid', gap: '10px' }}>
+            <div>
+              <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px', fontSize: '13px' }}>
+                Upload Video (MP4, max 50MB)
+              </label>
+              <input
+                type="file"
+                accept="video/mp4,video/webm,video/quicktime"
+                onChange={(e) => upload(e.target.files[0])}
+                disabled={busy}
+                style={{ fontSize: '13px' }}
+              />
+              {busy && <span style={{ marginLeft: '10px', color: '#66788a' }}>Uploading...</span>}
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px', fontSize: '13px' }}>
+                Caption (optional)
+              </label>
+              <input
+                type="text"
+                value={caption}
+                onChange={(e) => setCaption(e.target.value)}
+                placeholder="e.g. Field trip to the Blue Nile Gorge, 2025"
+                style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '6px', fontSize: '13px' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button className="primary" onClick={saveCaption} style={{ background: '#28a745', fontSize: '13px' }}>
+                💾 Save Caption
+              </button>
+              {videoUrl && (
+                <button className="secondary" onClick={removeVideo} style={{ color: '#dc3545', fontSize: '13px' }}>
+                  🗑️ Remove Video
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
