@@ -643,6 +643,7 @@ function Activities({ user, meta }) {
   const [activities, setActivities] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({
     title: '', description: '', category: 'Field Trip',
     date: '', location: '', imageFile: null,
@@ -650,7 +651,7 @@ function Activities({ user, meta }) {
 
   const isStaff = meta?.role === 'staff';
 
-  // Load uploaded activities
+  // Load activities
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from('activities')
@@ -660,12 +661,21 @@ function Activities({ user, meta }) {
     })();
   }, []);
 
+  // Reset form helper
+  const resetForm = () => {
+    setForm({ title: '', description: '', category: 'Field Trip', date: '', location: '', imageFile: null });
+    setEditingId(null);
+  };
+
+  // ============ CREATE ============
   const submit = async () => {
     if (!form.title.trim()) return alert('Please enter a title.');
     if (!form.imageFile) return alert('Please choose an image.');
+
     setBusy(true);
     const up = await uploadToStorage('activity-images', form.imageFile);
     if (!up) { setBusy(false); return alert('Image upload failed.'); }
+
     const row = {
       title: form.title.trim(),
       description: form.description.trim(),
@@ -676,121 +686,238 @@ function Activities({ user, meta }) {
       uploaded_by: meta?.name,
       user_id: user.id,
     };
+
     const { data, error } = await supabase.from('activities').insert([row]).select();
     setBusy(false);
     if (error) return alert(error.message);
+
     if (data) setActivities(prev => [...data, ...prev]);
-    setForm({ title: '', description: '', category: 'Field Trip', date: '', location: '', imageFile: null });
+    resetForm();
     setShowForm(false);
     alert('✅ Activity posted!');
   };
 
+  // ============ EDIT START ============
+  const startEdit = (activity) => {
+    setEditingId(activity.id);
+    setForm({
+      title: activity.title || '',
+      description: activity.description || '',
+      category: activity.category || 'Field Trip',
+      date: activity.activity_date || '',
+      location: activity.location || '',
+      imageFile: null,
+    });
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // ============ EDIT SAVE ============
+  const saveEdit = async () => {
+    if (!editingId) return;
+    if (!form.title.trim()) return alert('Please enter a title.');
+
+    setBusy(true);
+    let newImageUrl = null;
+    if (form.imageFile) {
+      const up = await uploadToStorage('activity-images', form.imageFile);
+      if (up) newImageUrl = up.url;
+    }
+
+    const updates = {
+      title: form.title.trim(),
+      description: form.description.trim(),
+      category: form.category,
+      activity_date: form.date,
+      location: form.location.trim(),
+    };
+    if (newImageUrl) updates.image_url = newImageUrl;
+
+    const { data, error } = await supabase
+      .from('activities')
+      .update(updates)
+      .eq('id', editingId)
+      .select();
+
+    setBusy(false);
+    if (error) return alert(error.message);
+
+    if (data && data[0]) {
+      setActivities(prev => prev.map(a => a.id === editingId ? data[0] : a));
+    }
+    resetForm();
+    setShowForm(false);
+    alert('✅ Activity updated!');
+  };
+
+  // ============ DELETE ============
   const del = async (id) => {
     if (!confirm('Delete this activity?')) return;
     await supabase.from('activities').delete().eq('id', id);
     setActivities(prev => prev.filter(a => a.id !== id));
   };
 
-  // The 6 fixed category cards — always shown
+  // ============ STATIC CATEGORY CARDS ============
   const staticCategories = [
-    { label: 'Field Trips', icon: '🚌' },
-    { label: 'Seminars', icon: '🎤' },
-    { label: 'Lab Training', icon: '🔬' },
-    { label: 'Community Service', icon: '🤝' },
-    { label: 'Workshops', icon: '🛠️' },
-    { label: 'Industrial Visits', icon: '🏭' },
+    { label: 'Field Trips',        icon: '🚌', color: '#1769aa' },
+    { label: 'Seminars',           icon: '🎤', color: '#6f42c1' },
+    { label: 'Lab Training',       icon: '🔬', color: '#28a745' },
+    { label: 'Community Service',  icon: '🤝', color: '#fd7e14' },
+    { label: 'Workshops',          icon: '🛠️', color: '#17a2b8' },
+    { label: 'Industrial Visits',  icon: '🏭', color: '#e83e8c' },
   ];
 
   return (
     <Page title="Department Activities" kicker="ENGAGEMENT">
 
-      {/* ===== STATIC CATEGORY CARDS (always visible) ===== */}
-      <div className="activityGrid" style={{
+      {/* ================= HERO ================= */}
+      <div style={{
+        background: 'linear-gradient(135deg, #102a43 0%, #1769aa 100%)',
+        color: 'white',
+        padding: '30px 35px',
+        borderRadius: '16px',
+        marginBottom: '35px',
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
+        <div style={{
+          position: 'absolute', top: '-40px', right: '-40px',
+          fontSize: '180px', opacity: 0.08, transform: 'rotate(15deg)',
+          pointerEvents: 'none'
+        }}>🌍</div>
+        <div style={{ position: 'relative' }}>
+          <p style={{ margin: 0, opacity: 0.8, fontSize: '12px', letterSpacing: '2px', fontWeight: '700' }}>
+            DEPARTMENT OF GEOLOGY
+          </p>
+          <h2 style={{ margin: '8px 0 6px', fontSize: '26px', fontWeight: '700' }}>
+            Field Trips, Seminars &amp; Engagement
+          </h2>
+          <p style={{ margin: 0, opacity: 0.85, fontSize: '14px', maxWidth: '600px', lineHeight: '1.6' }}>
+            A living record of our department's activities — field work, laboratory training,
+            workshops, and community engagement.
+          </p>
+        </div>
+      </div>
+
+      {/* ================= STATIC CATEGORY CARDS ================= */}
+      <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-        gap: '20px',
-        marginBottom: '40px'
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gap: '16px',
+        marginBottom: '45px'
       }}>
         {staticCategories.map((c, i) => (
-          <article className="activity" key={c.label} style={{
+          <div key={c.label} style={{
             background: 'white',
             border: '1px solid #dbe4ec',
-            borderRadius: '12px',
-            padding: '25px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+            borderRadius: '14px',
+            padding: '22px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+            position: 'relative',
+            overflow: 'hidden',
+            transition: 'transform 0.2s'
           }}>
-            <div className="activityNo" style={{
-              fontSize: '42px',
+            <div style={{
+              position: 'absolute',
+              top: 0, left: 0,
+              width: '4px', height: '100%',
+              background: c.color
+            }} />
+            <div style={{
+              fontSize: '38px',
               fontWeight: '800',
-              color: '#dbe4ec',
-              lineHeight: 1
+              color: '#f0f4f8',
+              lineHeight: 1,
+              marginBottom: '8px'
             }}>
               {String(i + 1).padStart(2, '0')}
             </div>
-            <h3 style={{ margin: '15px 0 5px', color: '#102a43', fontSize: '18px' }}>
-              {c.icon} {c.label}
+            <div style={{ fontSize: '28px', marginBottom: '6px' }}>{c.icon}</div>
+            <h3 style={{ margin: '0 0 6px', color: '#102a43', fontSize: '16px' }}>
+              {c.label}
             </h3>
-            <p style={{ color: '#66788a', fontSize: '14px', margin: 0 }}>
+            <p style={{ color: '#66788a', fontSize: '13px', margin: 0, lineHeight: '1.5' }}>
               Department activity, training and academic engagement.
             </p>
-          </article>
+          </div>
         ))}
       </div>
 
-      {/* ===== HEADER FOR UPLOADED ACTIVITIES ===== */}
+      {/* ================= RECENT ACTIVITIES HEADER ================= */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'center',
+        alignItems: 'flex-end',
         flexWrap: 'wrap',
-        gap: '10px',
-        marginBottom: '20px',
-        paddingBottom: '15px',
+        gap: '12px',
+        marginBottom: '25px',
+        paddingBottom: '18px',
         borderBottom: '2px solid #dbe4ec'
       }}>
         <div>
-          <div className="eyebrow" style={{ color: '#c99a2e', fontSize: '11px', fontWeight: '800', letterSpacing: '2px' }}>
+          <div style={{
+            color: '#c99a2e', fontSize: '11px', fontWeight: '800',
+            letterSpacing: '2px', marginBottom: '6px'
+          }}>
             RECENT ACTIVITIES
           </div>
-          <h2 style={{ margin: '8px 0 0', color: '#102a43' }}>
-            Department Activities ({activities.length})
+          <h2 style={{ margin: 0, color: '#102a43', fontSize: '24px' }}>
+            Department Activities
+            <span style={{
+              background: '#1769aa', color: 'white',
+              fontSize: '14px', fontWeight: '600',
+              padding: '2px 12px', borderRadius: '20px',
+              marginLeft: '12px', verticalAlign: 'middle'
+            }}>{activities.length}</span>
           </h2>
         </div>
 
         {isStaff && (
           <button
             className="primary"
-            onClick={() => setShowForm(!showForm)}
-            style={{ background: '#28a745' }}
+            onClick={() => {
+              if (showForm && editingId) resetForm();
+              setShowForm(!showForm);
+            }}
+            style={{ background: '#28a745', padding: '12px 24px', fontSize: '14px' }}
           >
             {showForm ? '📕 Close Form' : '📝 Post New Activity'}
           </button>
         )}
       </div>
 
-      {/* ===== POST FORM (staff only) ===== */}
+      {/* ================= FORM (staff only) ================= */}
       {isStaff && showForm && (
         <div style={{
-          background: '#f8f9fa', padding: '20px',
-          borderRadius: '12px', marginBottom: '25px',
-          border: '1px solid #dbe4ec'
+          background: 'linear-gradient(135deg, #f8f9fa, #ffffff)',
+          padding: '26px',
+          borderRadius: '14px',
+          marginBottom: '30px',
+          border: editingId ? '2px solid #1769aa' : '1px solid #dbe4ec',
+          boxShadow: '0 4px 14px rgba(0,0,0,0.05)'
         }}>
-          <h3 style={{ color: '#102a43', marginBottom: '15px' }}>📝 New Activity</h3>
+          <h3 style={{ color: '#102a43', marginTop: 0, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {editingId ? '✏️ Edit Activity' : '📝 New Activity'}
+          </h3>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div style={{ gridColumn: 'span 2' }}>
-              <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Title *</label>
-              <input type="text" value={form.title}
+              <label style={labelStyle}>Title *</label>
+              <input
+                type="text" value={form.title}
                 onChange={e => setForm({ ...form, title: e.target.value })}
                 placeholder="e.g. Geological Field Trip to the Blue Nile Gorge"
-                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
+                style={inputStyle}
+              />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Category</label>
-              <select value={form.category}
+              <label style={labelStyle}>Category</label>
+              <select
+                value={form.category}
                 onChange={e => setForm({ ...form, category: e.target.value })}
-                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}>
+                style={inputStyle}
+              >
                 <option>Field Trip</option>
                 <option>Lab Training</option>
                 <option>Seminar</option>
@@ -802,127 +929,260 @@ function Activities({ user, meta }) {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Date</label>
-              <input type="date" value={form.date}
+              <label style={labelStyle}>Date</label>
+              <input
+                type="date" value={form.date}
                 onChange={e => setForm({ ...form, date: e.target.value })}
-                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
+                style={inputStyle}
+              />
             </div>
 
             <div style={{ gridColumn: 'span 2' }}>
-              <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Location</label>
-              <input type="text" value={form.location}
+              <label style={labelStyle}>Location</label>
+              <input
+                type="text" value={form.location}
                 onChange={e => setForm({ ...form, location: e.target.value })}
                 placeholder="e.g. Blue Nile Gorge, Dejen"
-                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
+                style={inputStyle}
+              />
             </div>
 
             <div style={{ gridColumn: 'span 2' }}>
-              <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Description</label>
-              <textarea value={form.description} rows="4"
+              <label style={labelStyle}>Description</label>
+              <textarea
+                value={form.description} rows="4"
                 onChange={e => setForm({ ...form, description: e.target.value })}
-                placeholder="What happened? Who attended?"
-                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
+                placeholder="What happened? Who attended? Any key outcomes?"
+                style={inputStyle}
+              />
             </div>
 
             <div style={{ gridColumn: 'span 2' }}>
-              <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Photo *</label>
-              <input type="file" accept="image/*"
+              <label style={labelStyle}>
+                Photo {editingId ? '(leave empty to keep current)' : '*'}
+              </label>
+              <input
+                type="file" accept="image/*"
                 onChange={e => setForm({ ...form, imageFile: e.target.files[0] })}
-                style={{ padding: '8px' }} />
+                style={{ ...inputStyle, padding: '9px' }}
+              />
+              {editingId && (
+                <p style={{ fontSize: '12px', color: '#66788a', marginTop: '6px' }}>
+                  Uploading a new image will replace the current one.
+                </p>
+              )}
             </div>
           </div>
 
-          <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
-            <button className="primary" onClick={submit} disabled={busy} style={{ background: '#28a745' }}>
-              {busy ? 'Uploading...' : '✅ Publish Activity'}
+          <div style={{ marginTop: '20px', display: 'flex', gap: '12px' }}>
+            <button
+              className="primary"
+              onClick={editingId ? saveEdit : submit}
+              disabled={busy}
+              style={{ background: '#28a745', padding: '11px 26px' }}
+            >
+              {busy ? 'Saving...' : editingId ? '✅ Update Activity' : '✅ Publish Activity'}
             </button>
-            <button className="secondary"
-              onClick={() => {
-                setShowForm(false);
-                setForm({ title: '', description: '', category: 'Field Trip', date: '', location: '', imageFile: null });
-              }}>
+            <button
+              className="secondary"
+              onClick={() => { resetForm(); setShowForm(false); }}
+              style={{ padding: '11px 26px' }}
+            >
               Cancel
             </button>
           </div>
         </div>
       )}
 
-      {/* ===== UPLOADED ACTIVITIES ===== */}
+      {/* ================= ACTIVITY CARDS ================= */}
       {activities.length === 0 ? (
         <div style={{
-          textAlign: 'center', padding: '40px',
-          background: '#f8f9fa', borderRadius: '12px'
+          textAlign: 'center', padding: '60px 30px',
+          background: 'linear-gradient(135deg, #f8f9fa, #ffffff)',
+          borderRadius: '16px',
+          border: '1px dashed #dbe4ec'
         }}>
-          <Microscope size={48} color="#1769aa" />
-          <h3 style={{ color: '#102a43', marginTop: '15px' }}>No Activities Posted Yet</h3>
-          <p style={{ color: '#66788a' }}>
+          <div style={{ fontSize: '56px', marginBottom: '10px' }}>📸</div>
+          <h3 style={{ color: '#102a43', margin: '0 0 8px' }}>No Activities Posted Yet</h3>
+          <p style={{ color: '#66788a', margin: 0, fontSize: '14px' }}>
             {isStaff
               ? 'Click "Post New Activity" above to share a field trip, seminar, or workshop with photos.'
               : 'Check back later for upcoming and past department activities.'}
           </p>
         </div>
       ) : (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-          gap: '20px'
-        }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '22px' }}>
           {activities.map(a => (
             <article key={a.id} style={{
               background: 'white',
-              borderRadius: '12px',
-              overflow: 'hidden',
               border: '1px solid #dbe4ec',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              borderRadius: '14px',
+              overflow: 'hidden',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
               display: 'flex',
-              flexDirection: 'column'
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              transition: 'box-shadow 0.2s'
             }}>
+              {/* IMAGE */}
               {a.image_url ? (
-                <img src={a.image_url} alt={a.title}
-                  style={{ width: '100%', height: '200px', objectFit: 'cover' }} />
+                <img
+                  src={a.image_url}
+                  alt={a.title}
+                  style={{
+                    width: '340px',
+                    minHeight: '240px',
+                    objectFit: 'cover',
+                    flexShrink: 0,
+                    background: '#f0f4f8'
+                  }}
+                />
               ) : (
                 <div style={{
-                  width: '100%', height: '200px',
+                  width: '340px',
+                  minHeight: '240px',
                   background: 'linear-gradient(135deg, #1a3a5c, #1769aa)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: 'white', fontSize: '42px'
+                  display: 'grid',
+                  placeItems: 'center',
+                  color: 'white',
+                  fontSize: '64px',
+                  flexShrink: 0
                 }}>📷</div>
               )}
 
-              <div style={{ padding: '18px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '8px' }}>
+              {/* CONTENT */}
+              <div style={{
+                flex: 1,
+                minWidth: '300px',
+                padding: '24px',
+                display: 'flex',
+                flexDirection: 'column'
+              }}>
+                {/* Badges row */}
+                <div style={{
+                  display: 'flex', gap: '8px', alignItems: 'center',
+                  flexWrap: 'wrap', marginBottom: '12px'
+                }}>
                   <span style={{
                     background: '#1769aa', color: 'white',
-                    padding: '2px 10px', borderRadius: '12px',
-                    fontSize: '11px', fontWeight: '600'
-                  }}>{a.category}</span>
+                    padding: '4px 12px', borderRadius: '20px',
+                    fontSize: '11px', fontWeight: '700',
+                    letterSpacing: '0.5px', textTransform: 'uppercase'
+                  }}>
+                    {a.category}
+                  </span>
                   {a.activity_date && (
-                    <small style={{ color: '#66788a' }}>📅 {a.activity_date}</small>
+                    <span style={{
+                      background: '#eaf4fb', color: '#1769aa',
+                      padding: '4px 12px', borderRadius: '20px',
+                      fontSize: '12px', fontWeight: '600'
+                    }}>
+                      📅 {a.activity_date}
+                    </span>
                   )}
                 </div>
 
-                <h3 style={{ margin: '4px 0 8px', color: '#102a43', fontSize: '17px' }}>{a.title}</h3>
+                <h3 style={{
+                  margin: '0 0 10px',
+                  color: '#102a43',
+                  fontSize: '20px',
+                  lineHeight: '1.35',
+                  fontWeight: '700'
+                }}>
+                  {a.title}
+                </h3>
 
                 {a.location && (
-                  <p style={{ color: '#66788a', fontSize: '12px', margin: '0 0 8px' }}>
+                  <p style={{
+                    margin: '0 0 12px',
+                    color: '#66788a',
+                    fontSize: '13px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
                     📍 {a.location}
                   </p>
                 )}
 
-                <p style={{ color: '#444', fontSize: '14px', lineHeight: '1.6', flex: 1 }}>
-                  {a.description}
-                </p>
-
-                <p style={{ fontSize: '11px', color: '#999', marginTop: '12px' }}>
-                  Posted by {a.uploaded_by} {a.created_at ? `• ${new Date(a.created_at).toLocaleDateString()}` : ''}
-                </p>
-
-                {isStaff && user.id === a.user_id && (
-                  <button className="secondary" onClick={() => del(a.id)}
-                    style={{ marginTop: '10px', color: '#dc3545' }}>
-                    🗑️ Delete
-                  </button>
+                {a.description && (
+                  <p style={{
+                    margin: '0 0 16px',
+                    color: '#444',
+                    fontSize: '14px',
+                    lineHeight: '1.7'
+                  }}>
+                    {a.description}
+                  </p>
                 )}
+
+                {/* Footer */}
+                <div style={{
+                  marginTop: 'auto',
+                  paddingTop: '14px',
+                  borderTop: '1px solid #f0f4f8',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '10px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{
+                      width: '34px', height: '34px',
+                      borderRadius: '50%',
+                      background: 'linear-gradient(135deg, #1a3a5c, #1769aa)',
+                      color: 'white',
+                      display: 'grid', placeItems: 'center',
+                      fontWeight: 'bold', fontSize: '14px'
+                    }}>
+                      {(a.uploaded_by || '?').charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p style={{ margin: 0, fontSize: '13px', color: '#102a43', fontWeight: '600' }}>
+                        {a.uploaded_by}
+                      </p>
+                      <p style={{ margin: 0, fontSize: '11px', color: '#999' }}>
+                        {a.created_at ? new Date(a.created_at).toLocaleDateString() : ''}
+                      </p>
+                    </div>
+                  </div>
+
+                  {isStaff && user.id === a.user_id && (
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={() => startEdit(a)}
+                        style={{
+                          background: 'white',
+                          border: '1px solid #1769aa',
+                          color: '#1769aa',
+                          padding: '7px 14px',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          fontWeight: '600'
+                        }}
+                      >
+                        ✏️ Edit
+                      </button>
+                      <button
+                        onClick={() => del(a.id)}
+                        style={{
+                          background: 'white',
+                          border: '1px solid #dc3545',
+                          color: '#dc3545',
+                          padding: '7px 14px',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          fontWeight: '600'
+                        }}
+                      >
+                        🗑️ Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </article>
           ))}
@@ -932,6 +1192,17 @@ function Activities({ user, meta }) {
     </Page>
   );
 }
+
+// ============================================
+// Local styles for this component
+// ============================================
+const labelStyle = {
+  display: 'block',
+  fontWeight: '600',
+  marginBottom: '6px',
+  fontSize: '13px',
+  color: '#102a43'
+};
 function Resources({ user, meta }) {
   const [tab, setTab] = useState('labs');
   const [labs, setLabs] = useState([]);
@@ -941,6 +1212,8 @@ function Resources({ user, meta }) {
   const [maps, setMaps] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editingTable, setEditingTable] = useState(null);
 
   const isStaff = meta?.role === 'staff';
 
@@ -963,7 +1236,6 @@ function Resources({ user, meta }) {
     publisher: '', description: '', imageFile: null, file: null
   });
 
-  // Load all data
   useEffect(() => {
     (async () => {
       const { data: l } = await supabase.from('lab_rooms').select('*').order('created_at', { ascending: false });
@@ -979,47 +1251,72 @@ function Resources({ user, meta }) {
     })();
   }, []);
 
-  useEffect(() => { setShowForm(false); }, [tab]);
+  // Reset when switching tabs or leaving form
+  useEffect(() => { setShowForm(false); setEditingId(null); setEditingTable(null); }, [tab]);
 
-  // ========== SUBMIT FUNCTIONS ==========
+  const resetForm = () => {
+    setEditingId(null);
+    setEditingTable(null);
+    setShowForm(false);
+    setLabForm({ name: '', description: '', capacity: '', location: '', imageFile: null });
+    setEquipForm({ name: '', category: 'Microscope', custom_category: '', model: '', serial_number: '', quantity: 1, condition: 'Working', lab_name: '', specifications: '', description: '', imageFile: null });
+    setOfficeForm({ staff_name: '', room_number: '', building: '', phone: '', email: '', office_hours: '', imageFile: null });
+    setBookForm({ title: '', author: '', edition: '', year: '', publisher: '', isbn: '', course_code: '', category: 'Reference', description: '', link: '', coverFile: null });
+    setMapForm({ title: '', map_type: 'Geological Map', scale: '', region: '', year: '', publisher: '', description: '', imageFile: null, file: null });
+  };
 
+  // ============ SUBMITS ============
   const submitLab = async () => {
     if (!labForm.name.trim()) return alert('Lab name required.');
-    if (!labForm.imageFile) return alert('Photo required.');
     setBusy(true);
-    const up = await uploadToStorage('resources', labForm.imageFile);
-    if (!up) { setBusy(false); return alert('Upload failed.'); }
-    const { data, error } = await supabase.from('lab_rooms').insert([{
+    let imageUrl = null;
+    if (labForm.imageFile) {
+      const up = await uploadToStorage('resources', labForm.imageFile);
+      if (up) imageUrl = up.url;
+    }
+    const payload = {
       name: labForm.name.trim(),
       description: labForm.description.trim(),
       capacity: labForm.capacity.trim(),
       location: labForm.location.trim(),
-      image_url: up.url,
-      uploaded_by: meta?.name,
-      user_id: user.id,
-    }]).select();
-    setBusy(false);
-    if (error) return alert(error.message);
-    setLabs(prev => [...(data || []), ...prev]);
-    setLabForm({ name: '', description: '', capacity: '', location: '', imageFile: null });
-    setShowForm(false);
-    alert('✅ Lab room added!');
+    };
+    if (imageUrl) payload.image_url = imageUrl;
+
+    if (editingId && editingTable === 'lab_rooms') {
+      payload.uploaded_by = meta?.name;
+      const { data, error } = await supabase.from('lab_rooms').update(payload).eq('id', editingId).select();
+      setBusy(false);
+      if (error) return alert(error.message);
+      setLabs(prev => prev.map(x => x.id === editingId ? data[0] : x));
+      alert('✅ Lab updated!');
+    } else {
+      if (!imageUrl) { setBusy(false); return alert('Photo required.'); }
+      payload.image_url = imageUrl;
+      payload.uploaded_by = meta?.name;
+      payload.user_id = user.id;
+      const { data, error } = await supabase.from('lab_rooms').insert([payload]).select();
+      setBusy(false);
+      if (error) return alert(error.message);
+      setLabs(prev => [...(data || []), ...prev]);
+      alert('✅ Lab room added!');
+    }
+    resetForm();
   };
 
   const submitEquip = async () => {
     if (!equipForm.name.trim()) return alert('Equipment name required.');
-    if (!equipForm.imageFile) return alert('Photo required.');
     if (equipForm.category === 'Other' && !equipForm.custom_category.trim()) {
-      return alert('Please type the new category name since you chose "Other".');
+      return alert('Please type the new category name.');
     }
-    const finalCategory = equipForm.category === 'Other'
-      ? equipForm.custom_category.trim()
-      : equipForm.category;
+    const finalCategory = equipForm.category === 'Other' ? equipForm.custom_category.trim() : equipForm.category;
 
     setBusy(true);
-    const up = await uploadToStorage('resources', equipForm.imageFile);
-    if (!up) { setBusy(false); return alert('Upload failed.'); }
-    const { data, error } = await supabase.from('lab_equipment').insert([{
+    let imageUrl = null;
+    if (equipForm.imageFile) {
+      const up = await uploadToStorage('resources', equipForm.imageFile);
+      if (up) imageUrl = up.url;
+    }
+    const payload = {
       name: equipForm.name.trim(),
       category: finalCategory,
       model: equipForm.model.trim(),
@@ -1029,57 +1326,77 @@ function Resources({ user, meta }) {
       lab_name: equipForm.lab_name.trim(),
       specifications: equipForm.specifications.trim(),
       description: equipForm.description.trim(),
-      image_url: up.url,
-      uploaded_by: meta?.name,
-      user_id: user.id,
-    }]).select();
-    setBusy(false);
-    if (error) return alert(error.message);
-    setEquipment(prev => [...(data || []), ...prev]);
-    setEquipForm({
-      name: '', category: 'Microscope', custom_category: '', model: '', serial_number: '',
-      quantity: 1, condition: 'Working', lab_name: '', specifications: '', description: '', imageFile: null
-    });
-    setShowForm(false);
-    alert('✅ Equipment added!');
+    };
+    if (imageUrl) payload.image_url = imageUrl;
+
+    if (editingId && editingTable === 'lab_equipment') {
+      payload.uploaded_by = meta?.name;
+      const { data, error } = await supabase.from('lab_equipment').update(payload).eq('id', editingId).select();
+      setBusy(false);
+      if (error) return alert(error.message);
+      setEquipment(prev => prev.map(x => x.id === editingId ? data[0] : x));
+      alert('✅ Equipment updated!');
+    } else {
+      if (!imageUrl) { setBusy(false); return alert('Photo required.'); }
+      payload.image_url = imageUrl;
+      payload.uploaded_by = meta?.name;
+      payload.user_id = user.id;
+      const { data, error } = await supabase.from('lab_equipment').insert([payload]).select();
+      setBusy(false);
+      if (error) return alert(error.message);
+      setEquipment(prev => [...(data || []), ...prev]);
+      alert('✅ Equipment added!');
+    }
+    resetForm();
   };
 
   const submitOffice = async () => {
     if (!officeForm.staff_name.trim()) return alert('Staff name required.');
     setBusy(true);
-    let imageUrl = '';
+    let imageUrl = null;
     if (officeForm.imageFile) {
       const up = await uploadToStorage('resources', officeForm.imageFile);
       if (up) imageUrl = up.url;
     }
-    const { data, error } = await supabase.from('staff_offices').insert([{
+    const payload = {
       staff_name: officeForm.staff_name.trim(),
       room_number: officeForm.room_number.trim(),
       building: officeForm.building.trim(),
       phone: officeForm.phone.trim(),
       email: officeForm.email.trim(),
       office_hours: officeForm.office_hours.trim(),
-      image_url: imageUrl,
-      uploaded_by: meta?.name,
-      user_id: user.id,
-    }]).select();
-    setBusy(false);
-    if (error) return alert(error.message);
-    setOffices(prev => [...(data || []), ...prev]);
-    setOfficeForm({ staff_name: '', room_number: '', building: '', phone: '', email: '', office_hours: '', imageFile: null });
-    setShowForm(false);
-    alert('✅ Office added!');
+    };
+    if (imageUrl) payload.image_url = imageUrl;
+
+    if (editingId && editingTable === 'staff_offices') {
+      payload.uploaded_by = meta?.name;
+      const { data, error } = await supabase.from('staff_offices').update(payload).eq('id', editingId).select();
+      setBusy(false);
+      if (error) return alert(error.message);
+      setOffices(prev => prev.map(x => x.id === editingId ? data[0] : x));
+      alert('✅ Office updated!');
+    } else {
+      payload.image_url = imageUrl || '';
+      payload.uploaded_by = meta?.name;
+      payload.user_id = user.id;
+      const { data, error } = await supabase.from('staff_offices').insert([payload]).select();
+      setBusy(false);
+      if (error) return alert(error.message);
+      setOffices(prev => [...(data || []), ...prev]);
+      alert('✅ Office added!');
+    }
+    resetForm();
   };
 
   const submitBook = async () => {
     if (!bookForm.title.trim()) return alert('Book title required.');
     setBusy(true);
-    let coverUrl = '';
+    let coverUrl = null;
     if (bookForm.coverFile) {
       const up = await uploadToStorage('resources', bookForm.coverFile);
       if (up) coverUrl = up.url;
     }
-    const { data, error } = await supabase.from('reference_books').insert([{
+    const payload = {
       title: bookForm.title.trim(),
       author: bookForm.author.trim(),
       edition: bookForm.edition.trim(),
@@ -1090,26 +1407,33 @@ function Resources({ user, meta }) {
       category: bookForm.category,
       description: bookForm.description.trim(),
       link: bookForm.link.trim(),
-      cover_url: coverUrl,
-      uploaded_by: meta?.name,
-      user_id: user.id,
-    }]).select();
-    setBusy(false);
-    if (error) return alert(error.message);
-    setBooks(prev => [...(data || []), ...prev]);
-    setBookForm({ title: '', author: '', edition: '', year: '', publisher: '', isbn: '', course_code: '', category: 'Reference', description: '', link: '', coverFile: null });
-    setShowForm(false);
-    alert('✅ Book added!');
+    };
+    if (coverUrl) payload.cover_url = coverUrl;
+
+    if (editingId && editingTable === 'reference_books') {
+      payload.uploaded_by = meta?.name;
+      const { data, error } = await supabase.from('reference_books').update(payload).eq('id', editingId).select();
+      setBusy(false);
+      if (error) return alert(error.message);
+      setBooks(prev => prev.map(x => x.id === editingId ? data[0] : x));
+      alert('✅ Book updated!');
+    } else {
+      payload.cover_url = coverUrl || '';
+      payload.uploaded_by = meta?.name;
+      payload.user_id = user.id;
+      const { data, error } = await supabase.from('reference_books').insert([payload]).select();
+      setBusy(false);
+      if (error) return alert(error.message);
+      setBooks(prev => [...(data || []), ...prev]);
+      alert('✅ Book added!');
+    }
+    resetForm();
   };
 
   const submitMap = async () => {
     if (!mapForm.title.trim()) return alert('Map title required.');
-    if (!mapForm.imageFile && !mapForm.file) {
-      return alert('Please upload at least an image or a file of the map.');
-    }
     setBusy(true);
-    let imageUrl = '';
-    let fileUrl = '';
+    let imageUrl = null, fileUrl = null;
     if (mapForm.imageFile) {
       const up = await uploadToStorage('resources', mapForm.imageFile);
       if (up) imageUrl = up.url;
@@ -1118,7 +1442,7 @@ function Resources({ user, meta }) {
       const up = await uploadToStorage('resources', mapForm.file);
       if (up) fileUrl = up.url;
     }
-    const { data, error } = await supabase.from('maps').insert([{
+    const payload = {
       title: mapForm.title.trim(),
       map_type: mapForm.map_type,
       scale: mapForm.scale.trim(),
@@ -1126,26 +1450,95 @@ function Resources({ user, meta }) {
       year: mapForm.year.trim(),
       publisher: mapForm.publisher.trim(),
       description: mapForm.description.trim(),
-      image_url: imageUrl,
-      file_url: fileUrl,
-      uploaded_by: meta?.name,
-      user_id: user.id,
-    }]).select();
-    setBusy(false);
-    if (error) return alert(error.message);
-    setMaps(prev => [...(data || []), ...prev]);
-    setMapForm({
-      title: '', map_type: 'Geological Map', scale: '', region: '', year: '',
-      publisher: '', description: '', imageFile: null, file: null
-    });
-    setShowForm(false);
-    alert('✅ Map added!');
+    };
+    if (imageUrl) payload.image_url = imageUrl;
+    if (fileUrl) payload.file_url = fileUrl;
+
+    if (editingId && editingTable === 'maps') {
+      payload.uploaded_by = meta?.name;
+      const { data, error } = await supabase.from('maps').update(payload).eq('id', editingId).select();
+      setBusy(false);
+      if (error) return alert(error.message);
+      setMaps(prev => prev.map(x => x.id === editingId ? data[0] : x));
+      alert('✅ Map updated!');
+    } else {
+      if (!imageUrl && !fileUrl) { setBusy(false); return alert('Please upload an image or file.'); }
+      payload.image_url = imageUrl || '';
+      payload.file_url = fileUrl || '';
+      payload.uploaded_by = meta?.name;
+      payload.user_id = user.id;
+      const { data, error } = await supabase.from('maps').insert([payload]).select();
+      setBusy(false);
+      if (error) return alert(error.message);
+      setMaps(prev => [...(data || []), ...prev]);
+      alert('✅ Map added!');
+    }
+    resetForm();
   };
 
   const delItem = async (table, id, setter) => {
     if (!confirm('Delete this item?')) return;
     await supabase.from(table).delete().eq('id', id);
     setter(prev => prev.filter(x => x.id !== id));
+  };
+
+  // ============ EDIT STARTERS ============
+  const startEditLab = (lab) => {
+    setEditingId(lab.id); setEditingTable('lab_rooms');
+    setLabForm({
+      name: lab.name || '', description: lab.description || '',
+      capacity: lab.capacity || '', location: lab.location || '', imageFile: null,
+    });
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const startEditEquip = (eq) => {
+    setEditingId(eq.id); setEditingTable('lab_equipment');
+    setEquipForm({
+      name: eq.name || '', category: eq.category || 'Microscope', custom_category: '',
+      model: eq.model || '', serial_number: eq.serial_number || '',
+      quantity: eq.quantity || 1, condition: eq.condition || 'Working',
+      lab_name: eq.lab_name || '', specifications: eq.specifications || '',
+      description: eq.description || '', imageFile: null,
+    });
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const startEditOffice = (o) => {
+    setEditingId(o.id); setEditingTable('staff_offices');
+    setOfficeForm({
+      staff_name: o.staff_name || '', room_number: o.room_number || '',
+      building: o.building || '', phone: o.phone || '',
+      email: o.email || '', office_hours: o.office_hours || '', imageFile: null,
+    });
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const startEditBook = (b) => {
+    setEditingId(b.id); setEditingTable('reference_books');
+    setBookForm({
+      title: b.title || '', author: b.author || '', edition: b.edition || '',
+      year: b.year || '', publisher: b.publisher || '', isbn: b.isbn || '',
+      course_code: b.course_code || '', category: b.category || 'Reference',
+      description: b.description || '', link: b.link || '', coverFile: null,
+    });
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const startEditMap = (m) => {
+    setEditingId(m.id); setEditingTable('maps');
+    setMapForm({
+      title: m.title || '', map_type: m.map_type || 'Geological Map',
+      scale: m.scale || '', region: m.region || '', year: m.year || '',
+      publisher: m.publisher || '', description: m.description || '',
+      imageFile: null, file: null,
+    });
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const condColor = (c) => ({
@@ -1155,585 +1548,407 @@ function Resources({ user, meta }) {
     'Retired':       { bg: '#f8d7da', fg: '#721c24' },
   })[c] || { bg: '#e2e3e5', fg: '#383d41' };
 
-  const TabBtn = ({ id, label }) => (
+  // ============ ROW CARD (reused) ============
+  const RowCard = ({ image, placeholderIcon, children, item, tableName, setter, onEdit }) => (
+    <article style={{
+      background: 'white',
+      border: '1px solid #dbe4ec',
+      borderRadius: '14px',
+      overflow: 'hidden',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+      display: 'flex',
+      flexDirection: 'row',
+      flexWrap: 'wrap'
+    }}>
+      {image ? (
+        <img src={image} alt=""
+          style={{
+            width: '340px', minHeight: '240px',
+            objectFit: 'cover', flexShrink: 0,
+            background: '#f0f4f8'
+          }}
+        />
+      ) : (
+        <div style={{
+          width: '340px', minHeight: '240px',
+          background: 'linear-gradient(135deg, #1a3a5c, #1769aa)',
+          display: 'grid', placeItems: 'center',
+          color: 'white', fontSize: '72px', flexShrink: 0
+        }}>{placeholderIcon}</div>
+      )}
+
+      <div style={{ flex: 1, minWidth: '300px', padding: '24px', display: 'flex', flexDirection: 'column' }}>
+        {children}
+
+        <div style={{
+          marginTop: 'auto', paddingTop: '14px',
+          borderTop: '1px solid #f0f4f8',
+          display: 'flex', justifyContent: 'space-between',
+          alignItems: 'center', flexWrap: 'wrap', gap: '10px'
+        }}>
+          <p style={{ margin: 0, fontSize: '11px', color: '#999' }}>
+            Added by {item.uploaded_by || 'Staff'}
+          </p>
+          {isStaff && user.id === item.user_id && (
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => onEdit(item)}
+                style={{
+                  background: 'white', border: '1px solid #1769aa',
+                  color: '#1769aa', padding: '7px 14px',
+                  borderRadius: '8px', cursor: 'pointer',
+                  fontSize: '12px', fontWeight: '600'
+                }}
+              >✏️ Edit</button>
+              <button onClick={() => delItem(tableName, item.id, setter)}
+                style={{
+                  background: 'white', border: '1px solid #dc3545',
+                  color: '#dc3545', padding: '7px 14px',
+                  borderRadius: '8px', cursor: 'pointer',
+                  fontSize: '12px', fontWeight: '600'
+                }}
+              >🗑️ Delete</button>
+            </div>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+
+  const FullWidthGrid = ({ children }) => (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '22px' }}>
+      {children}
+    </div>
+  );
+
+  const TabBtn = ({ id, label, count }) => (
     <button onClick={() => setTab(id)} style={{
       padding: '14px 22px',
       border: 'none',
       background: tab === id ? '#1769aa' : 'white',
       color: tab === id ? 'white' : '#102a43',
-      borderTopLeftRadius: '10px',
-      borderTopRightRadius: '10px',
+      borderTopLeftRadius: '12px',
+      borderTopRightRadius: '12px',
       cursor: 'pointer',
-      fontWeight: '600',
+      fontWeight: '700',
       fontSize: '14px',
       borderBottom: tab === id ? '3px solid #1769aa' : '3px solid transparent',
-    }}>{label}</button>
+      transition: 'all 0.2s'
+    }}>{label} <span style={{ opacity: 0.75, fontWeight: '500' }}>({count})</span></button>
   );
 
   const AddBtn = ({ label }) => (
-    <button className="primary" onClick={() => setShowForm(!showForm)} style={{ background: '#28a745' }}>
+    <button className="primary"
+      onClick={() => { if (editingId) resetForm(); setShowForm(!showForm); }}
+      style={{ background: '#28a745', padding: '12px 24px', fontSize: '14px' }}>
       {showForm ? '📕 Close Form' : label}
     </button>
+  );
+
+  const FormHeader = ({ icon, title }) => (
+    <h3 style={{
+      color: '#102a43', marginTop: 0, marginBottom: '20px',
+      display: 'flex', alignItems: 'center', gap: '10px'
+    }}>{icon} {editingId ? 'Edit' : 'New'} {title}</h3>
   );
 
   return (
     <Page title="Academic Resources" kicker="LEARNING CENTER">
 
-      {/* ============ TABS ============ */}
+      {/* HERO */}
+      <div style={{
+        background: 'linear-gradient(135deg, #102a43 0%, #1769aa 100%)',
+        color: 'white', padding: '28px 32px', borderRadius: '16px',
+        marginBottom: '30px', position: 'relative', overflow: 'hidden'
+      }}>
+        <div style={{
+          position: 'absolute', top: '-30px', right: '-20px',
+          fontSize: '160px', opacity: 0.08, transform: 'rotate(12deg)',
+          pointerEvents: 'none'
+        }}>📚</div>
+        <p style={{ margin: 0, opacity: 0.8, fontSize: '12px', letterSpacing: '2px', fontWeight: '700' }}>
+          DEPARTMENT OF GEOLOGY
+        </p>
+        <h2 style={{ margin: '8px 0 6px', fontSize: '24px', fontWeight: '700' }}>
+          Academic Resources
+        </h2>
+        <p style={{ margin: 0, opacity: 0.85, fontSize: '14px', maxWidth: '620px', lineHeight: '1.6' }}>
+          Laboratory rooms, equipment, staff offices, reference books and geological maps.
+        </p>
+      </div>
+
+      {/* TABS */}
       <div style={{
         display: 'flex', gap: '6px', flexWrap: 'wrap',
         borderBottom: '2px solid #dbe4ec', marginBottom: '25px'
       }}>
-        <TabBtn id="labs"      label={`🔬 Laboratory Rooms (${labs.length})`} />
-        <TabBtn id="equipment" label={`🧪 Lab Equipment (${equipment.length})`} />
-        <TabBtn id="offices"   label={`🏢 Staff Offices (${offices.length})`} />
-        <TabBtn id="books"     label={`📚 Reference Books (${books.length})`} />
-        <TabBtn id="maps"      label={`🗺️ Maps (${maps.length})`} />
+        <TabBtn id="labs"      label="🔬 Laboratory Rooms" count={labs.length} />
+        <TabBtn id="equipment" label="🧪 Lab Equipment"    count={equipment.length} />
+        <TabBtn id="offices"   label="🏢 Staff Offices"    count={offices.length} />
+        <TabBtn id="books"     label="📚 Reference Books"  count={books.length} />
+        <TabBtn id="maps"      label="🗺️ Maps"             count={maps.length} />
       </div>
 
-      {/* ================================================== */}
-      {/* ================ LAB ROOMS TAB =================== */}
-      {/* ================================================== */}
+      {/* ================= LABS ================= */}
       {tab === 'labs' && (
         <>
-          {isStaff && (
-            <div style={{ marginBottom: '20px' }}>
-              <AddBtn label="📝 Add Lab Room" />
-            </div>
-          )}
-
+          {isStaff && <div style={{ marginBottom: '20px' }}><AddBtn label="📝 Add Lab Room" /></div>}
           {isStaff && showForm && (
             <div style={formBoxStyle}>
-              <h3 style={formHeaderStyle}>🔬 New Lab Room</h3>
+              <FormHeader icon="🔬" title="Lab Room" />
               <div style={gridStyle}>
-                <Field label="Lab Name *">
-                  <input value={labForm.name} onChange={e => setLabForm({ ...labForm, name: e.target.value })}
-                    placeholder="e.g. Petrology Laboratory" style={inputStyle} />
-                </Field>
-                <Field label="Location">
-                  <input value={labForm.location} onChange={e => setLabForm({ ...labForm, location: e.target.value })}
-                    placeholder="e.g. Block 4, Room 201" style={inputStyle} />
-                </Field>
-                <Field label="Capacity">
-                  <input value={labForm.capacity} onChange={e => setLabForm({ ...labForm, capacity: e.target.value })}
-                    placeholder="e.g. 30 students" style={inputStyle} />
-                </Field>
-                <Field label="Photo *">
-                  <input type="file" accept="image/*"
-                    onChange={e => setLabForm({ ...labForm, imageFile: e.target.files[0] })} style={inputStyle} />
-                </Field>
+                <Field label="Lab Name *"><input value={labForm.name} onChange={e=>setLabForm({...labForm,name:e.target.value})} placeholder="e.g. Petrology Laboratory" style={inputStyle}/></Field>
+                <Field label="Location"><input value={labForm.location} onChange={e=>setLabForm({...labForm,location:e.target.value})} placeholder="e.g. Block 4, Room 201" style={inputStyle}/></Field>
+                <Field label="Capacity"><input value={labForm.capacity} onChange={e=>setLabForm({...labForm,capacity:e.target.value})} placeholder="e.g. 30 students" style={inputStyle}/></Field>
+                <Field label={editingId ? 'Photo (optional)' : 'Photo *'}><input type="file" accept="image/*" onChange={e=>setLabForm({...labForm,imageFile:e.target.files[0]})} style={inputStyle}/></Field>
                 <div style={{ gridColumn: 'span 2' }}>
-                  <Field label="Description">
-                    <textarea value={labForm.description}
-                      onChange={e => setLabForm({ ...labForm, description: e.target.value })}
-                      rows="3" placeholder="Equipment, purpose, notes..." style={inputStyle} />
-                  </Field>
+                  <Field label="Description"><textarea value={labForm.description} onChange={e=>setLabForm({...labForm,description:e.target.value})} rows="3" placeholder="Equipment, purpose, notes..." style={inputStyle}/></Field>
                 </div>
               </div>
-              <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
-                <button className="primary" onClick={submitLab} disabled={busy} style={{ background: '#28a745' }}>
-                  {busy ? 'Uploading...' : '✅ Add Lab'}
-                </button>
-                <button className="secondary" onClick={() => setShowForm(false)}>Cancel</button>
+              <div style={{ marginTop: '18px', display: 'flex', gap: '10px' }}>
+                <button className="primary" onClick={submitLab} disabled={busy} style={{ background: '#28a745' }}>{busy?'Saving...': editingId ? '✅ Update Lab' : '✅ Add Lab'}</button>
+                <button className="secondary" onClick={resetForm}>Cancel</button>
               </div>
             </div>
           )}
-
-          {labs.length === 0 ? <Empty msg="No lab rooms added yet." isStaff={isStaff} /> : (
-            <div style={cardsGrid}>
+          {labs.length === 0 ? <Empty msg="No lab rooms added yet." isStaff={isStaff}/> : (
+            <FullWidthGrid>
               {labs.map(lab => (
-                <Card key={lab.id}>
-                  {lab.image_url ? <img src={lab.image_url} alt={lab.name} style={cardImageStyle} /> : <div style={imagePlaceholderStyle}>🔬</div>}
-                  <div style={cardBodyStyle}>
-                    <h3 style={cardTitleStyle}>{lab.name}</h3>
-                    {lab.location && <p style={cardMetaStyle}>📍 {lab.location}</p>}
-                    {lab.capacity && <p style={cardMetaStyle}>👥 {lab.capacity}</p>}
-                    {lab.description && <p style={cardDescStyle}>{lab.description}</p>}
-                    <p style={cardFooterStyle}>Added by {lab.uploaded_by}</p>
-                    {isStaff && user.id === lab.user_id && (
-                      <button className="secondary" onClick={() => delItem('lab_rooms', lab.id, setLabs)}
-                        style={{ color: '#dc3545', marginTop: '8px', fontSize: '12px' }}>🗑️ Delete</button>
-                    )}
-                  </div>
-                </Card>
+                <RowCard key={lab.id} image={lab.image_url} placeholderIcon="🔬" item={lab} tableName="lab_rooms" setter={setLabs} onEdit={startEditLab}>
+                  <h3 style={{ margin: '0 0 8px', color: '#102a43', fontSize: '20px' }}>{lab.name}</h3>
+                  {lab.location && <p style={cardMetaStyle}>📍 {lab.location}</p>}
+                  {lab.capacity && <p style={cardMetaStyle}>👥 {lab.capacity}</p>}
+                  {lab.description && <p style={{ margin: '10px 0', color: '#444', fontSize: '14px', lineHeight: '1.6' }}>{lab.description}</p>}
+                </RowCard>
               ))}
-            </div>
+            </FullWidthGrid>
           )}
         </>
       )}
 
-      {/* ================================================== */}
-      {/* ============== LAB EQUIPMENT TAB ================= */}
-      {/* ================================================== */}
+      {/* ================= EQUIPMENT ================= */}
       {tab === 'equipment' && (
         <>
-          {isStaff && (
-            <div style={{ marginBottom: '20px' }}>
-              <AddBtn label="📝 Add Equipment" />
-            </div>
-          )}
-
+          {isStaff && <div style={{ marginBottom: '20px' }}><AddBtn label="📝 Add Equipment" /></div>}
           {isStaff && showForm && (
             <div style={formBoxStyle}>
-              <h3 style={formHeaderStyle}>🧪 New Lab Equipment</h3>
+              <FormHeader icon="🧪" title="Lab Equipment" />
               <div style={gridStyle}>
-                <Field label="Equipment Name *">
-                  <input value={equipForm.name} onChange={e => setEquipForm({ ...equipForm, name: e.target.value })}
-                    placeholder="e.g. Polarizing Microscope" style={inputStyle} />
-                </Field>
-                
-                {/* Category row — spans full width when "Other" is selected */}
-<div style={{ gridColumn: equipForm.category === 'Other' ? 'span 2' : 'auto' }}>
-  <div style={{
-    display: 'grid',
-    gridTemplateColumns: equipForm.category === 'Other' ? '1fr 1fr' : '1fr',
-    gap: '12px'
-  }}>
-    <Field label="Category">
-      <select value={equipForm.category}
-        onChange={e => setEquipForm({ ...equipForm, category: e.target.value })}
-        style={inputStyle}>
-        <option>Microscope</option>
-        <option>Rock Cutting Saw</option>
-        <option>Sieve Set</option>
-        <option>GPS Receiver</option>
-        <option>Compass-Clinometer</option>
-        <option>Hammer & Chisel</option>
-        <option>Hand Lens</option>
-        <option>Spectrometer</option>
-        <option>XRF Analyzer</option>
-        <option>Oven / Furnace</option>
-        <option>Balance / Scale</option>
-        <option>Sample Splitter</option>
-        <option>Thin Sectioning Kit</option>
-        <option>Other</option>
-      </select>
-    </Field>
+                <Field label="Equipment Name *"><input value={equipForm.name} onChange={e=>setEquipForm({...equipForm,name:e.target.value})} placeholder="e.g. Polarizing Microscope" style={inputStyle}/></Field>
 
-    {equipForm.category === 'Other' && (
-      <Field label="Enter New Category Name *">
-        <input value={equipForm.custom_category}
-          onChange={e => setEquipForm({ ...equipForm, custom_category: e.target.value })}
-          placeholder="e.g. Seismic Sensor, Core Scanner..."
-          style={inputStyle} />
-        <p style={{ fontSize: '11px', color: '#66788a', marginTop: '4px' }}>
-          Since you chose "Other", please type the category name.
-        </p>
-      </Field>
-    )}
-  </div>
-</div>
-
-                <Field label="Model">
-                  <input value={equipForm.model} onChange={e => setEquipForm({ ...equipForm, model: e.target.value })}
-                    placeholder="e.g. Nikon Eclipse LV100" style={inputStyle} />
-                </Field>
-                <Field label="Serial Number">
-                  <input value={equipForm.serial_number}
-                    onChange={e => setEquipForm({ ...equipForm, serial_number: e.target.value })}
-                    placeholder="e.g. SN-2023-0451" style={inputStyle} />
-                </Field>
-                <Field label="Quantity">
-                  <input type="number" value={equipForm.quantity} min="1"
-                    onChange={e => setEquipForm({ ...equipForm, quantity: e.target.value })} style={inputStyle} />
-                </Field>
-                <Field label="Condition">
-                  <select value={equipForm.condition}
-                    onChange={e => setEquipForm({ ...equipForm, condition: e.target.value })}
-                    style={inputStyle}>
-                    <option>Working</option>
-                    <option>Needs Repair</option>
-                    <option>Under Service</option>
-                    <option>Retired</option>
+                <Field label="Category">
+                  <select value={equipForm.category} onChange={e=>setEquipForm({...equipForm,category:e.target.value})} style={inputStyle}>
+                    <option>Microscope</option><option>Rock Cutting Saw</option><option>Sieve Set</option>
+                    <option>GPS Receiver</option><option>Compass-Clinometer</option><option>Hammer & Chisel</option>
+                    <option>Hand Lens</option><option>Spectrometer</option><option>XRF Analyzer</option>
+                    <option>Oven / Furnace</option><option>Balance / Scale</option><option>Sample Splitter</option>
+                    <option>Thin Sectioning Kit</option><option>Other</option>
                   </select>
                 </Field>
-                <Field label="Located in Lab">
-                  <input value={equipForm.lab_name}
-                    onChange={e => setEquipForm({ ...equipForm, lab_name: e.target.value })}
-                    placeholder="e.g. Petrology Laboratory" style={inputStyle} />
-                </Field>
-                <Field label="Photo *">
-                  <input type="file" accept="image/*"
-                    onChange={e => setEquipForm({ ...equipForm, imageFile: e.target.files[0] })} style={inputStyle} />
-                </Field>
-                <div style={{ gridColumn: 'span 2' }}>
-                  <Field label="Specifications">
-                    <textarea value={equipForm.specifications}
-                      onChange={e => setEquipForm({ ...equipForm, specifications: e.target.value })}
-                      rows="2" placeholder="Technical specs, capacity, resolution..." style={inputStyle} />
+
+                {equipForm.category === 'Other' && (
+                  <Field label="Enter New Category Name *">
+                    <input value={equipForm.custom_category} onChange={e=>setEquipForm({...equipForm,custom_category:e.target.value})} placeholder="e.g. Seismic Sensor" style={inputStyle}/>
+                    <p style={{ fontSize: '11px', color: '#66788a', marginTop: '4px' }}>Type the custom category name.</p>
                   </Field>
+                )}
+
+                <Field label="Model"><input value={equipForm.model} onChange={e=>setEquipForm({...equipForm,model:e.target.value})} placeholder="e.g. Nikon Eclipse LV100" style={inputStyle}/></Field>
+                <Field label="Serial Number"><input value={equipForm.serial_number} onChange={e=>setEquipForm({...equipForm,serial_number:e.target.value})} placeholder="e.g. SN-2023-0451" style={inputStyle}/></Field>
+                <Field label="Quantity"><input type="number" value={equipForm.quantity} min="1" onChange={e=>setEquipForm({...equipForm,quantity:e.target.value})} style={inputStyle}/></Field>
+                <Field label="Condition">
+                  <select value={equipForm.condition} onChange={e=>setEquipForm({...equipForm,condition:e.target.value})} style={inputStyle}>
+                    <option>Working</option><option>Needs Repair</option><option>Under Service</option><option>Retired</option>
+                  </select>
+                </Field>
+                <Field label="Located in Lab"><input value={equipForm.lab_name} onChange={e=>setEquipForm({...equipForm,lab_name:e.target.value})} placeholder="e.g. Petrology Laboratory" style={inputStyle}/></Field>
+                <Field label={editingId ? 'Photo (optional)' : 'Photo *'}><input type="file" accept="image/*" onChange={e=>setEquipForm({...equipForm,imageFile:e.target.files[0]})} style={inputStyle}/></Field>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <Field label="Specifications"><textarea value={equipForm.specifications} onChange={e=>setEquipForm({...equipForm,specifications:e.target.value})} rows="2" placeholder="Technical specs..." style={inputStyle}/></Field>
                 </div>
                 <div style={{ gridColumn: 'span 2' }}>
-                  <Field label="Description / Usage">
-                    <textarea value={equipForm.description}
-                      onChange={e => setEquipForm({ ...equipForm, description: e.target.value })}
-                      rows="3" placeholder="What is this equipment used for? Who can access it?" style={inputStyle} />
-                  </Field>
+                  <Field label="Description / Usage"><textarea value={equipForm.description} onChange={e=>setEquipForm({...equipForm,description:e.target.value})} rows="3" placeholder="What is this equipment used for?" style={inputStyle}/></Field>
                 </div>
               </div>
-              <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
-                <button className="primary" onClick={submitEquip} disabled={busy} style={{ background: '#28a745' }}>
-                  {busy ? 'Uploading...' : '✅ Add Equipment'}
-                </button>
-                <button className="secondary" onClick={() => setShowForm(false)}>Cancel</button>
+              <div style={{ marginTop: '18px', display: 'flex', gap: '10px' }}>
+                <button className="primary" onClick={submitEquip} disabled={busy} style={{ background: '#28a745' }}>{busy?'Saving...': editingId ? '✅ Update Equipment' : '✅ Add Equipment'}</button>
+                <button className="secondary" onClick={resetForm}>Cancel</button>
               </div>
             </div>
           )}
-
-          {equipment.length === 0 ? <Empty msg="No lab equipment added yet." isStaff={isStaff} /> : (
-            <div style={cardsGrid}>
+          {equipment.length === 0 ? <Empty msg="No lab equipment added yet." isStaff={isStaff}/> : (
+            <FullWidthGrid>
               {equipment.map(eq => {
                 const cc = condColor(eq.condition);
                 return (
-                  <Card key={eq.id}>
-                    {eq.image_url ? <img src={eq.image_url} alt={eq.name} style={cardImageStyle} /> : <div style={imagePlaceholderStyle}>🧪</div>}
-                    <div style={cardBodyStyle}>
-                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
-                        <span style={badgeStyle}>{eq.category}</span>
-                        <span style={{ background: cc.bg, color: cc.fg, padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '600' }}>
-                          {eq.condition}
-                        </span>
-                      </div>
-                      <h3 style={cardTitleStyle}>{eq.name}</h3>
-                      {eq.model && <p style={cardMetaStyle}>🔧 Model: {eq.model}</p>}
-                      {eq.serial_number && <p style={cardMetaStyle}>🔢 SN: {eq.serial_number}</p>}
-                      {eq.quantity > 1 && <p style={cardMetaStyle}>📦 Quantity: {eq.quantity}</p>}
-                      {eq.lab_name && <p style={cardMetaStyle}>📍 {eq.lab_name}</p>}
-                      {eq.specifications && (
-                        <p style={{ ...cardDescStyle, fontStyle: 'italic', color: '#555' }}>
-                          <strong>Specs:</strong> {eq.specifications}
-                        </p>
-                      )}
-                      {eq.description && <p style={cardDescStyle}>{eq.description}</p>}
-                      <p style={cardFooterStyle}>Added by {eq.uploaded_by}</p>
-                      {isStaff && user.id === eq.user_id && (
-                        <button className="secondary" onClick={() => delItem('lab_equipment', eq.id, setEquipment)}
-                          style={{ color: '#dc3545', marginTop: '8px', fontSize: '12px' }}>🗑️ Delete</button>
-                      )}
+                  <RowCard key={eq.id} image={eq.image_url} placeholderIcon="🧪" item={eq} tableName="lab_equipment" setter={setEquipment} onEdit={startEditEquip}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                      <span style={badgeStyle}>{eq.category}</span>
+                      <span style={{ background: cc.bg, color: cc.fg, padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '600' }}>{eq.condition}</span>
                     </div>
-                  </Card>
+                    <h3 style={{ margin: '0 0 12px', color: '#102a43', fontSize: '20px', lineHeight: '1.3' }}>{eq.name}</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '6px 20px', marginBottom: '12px' }}>
+                      {eq.model && <p style={cardMetaStyle}>🔧 <strong>Model:</strong> {eq.model}</p>}
+                      {eq.serial_number && <p style={cardMetaStyle}>🔢 <strong>SN:</strong> {eq.serial_number}</p>}
+                      {eq.quantity > 1 && <p style={cardMetaStyle}>📦 <strong>Qty:</strong> {eq.quantity}</p>}
+                      {eq.lab_name && <p style={cardMetaStyle}>📍 <strong>Lab:</strong> {eq.lab_name}</p>}
+                    </div>
+                    {eq.specifications && <p style={{ margin: '0 0 10px', color: '#555', fontSize: '14px', lineHeight: '1.6', fontStyle: 'italic' }}><strong>Specs:</strong> {eq.specifications}</p>}
+                    {eq.description && <p style={{ margin: '0 0 12px', color: '#444', fontSize: '14px', lineHeight: '1.6' }}>{eq.description}</p>}
+                  </RowCard>
                 );
               })}
-            </div>
+            </FullWidthGrid>
           )}
         </>
       )}
 
-      {/* ================================================== */}
-      {/* ============== STAFF OFFICES TAB ================= */}
-      {/* ================================================== */}
+      {/* ================= OFFICES ================= */}
       {tab === 'offices' && (
         <>
-          {isStaff && (
-            <div style={{ marginBottom: '20px' }}>
-              <AddBtn label="📝 Add Office" />
-            </div>
-          )}
-
+          {isStaff && <div style={{ marginBottom: '20px' }}><AddBtn label="📝 Add Office" /></div>}
           {isStaff && showForm && (
             <div style={formBoxStyle}>
-              <h3 style={formHeaderStyle}>🏢 New Staff Office</h3>
+              <FormHeader icon="🏢" title="Staff Office" />
               <div style={gridStyle}>
-                <Field label="Staff Name *">
-                  <input value={officeForm.staff_name}
-                    onChange={e => setOfficeForm({ ...officeForm, staff_name: e.target.value })}
-                    placeholder="e.g. Dr. Dawit Asmare" style={inputStyle} />
-                </Field>
-                <Field label="Room Number">
-                  <input value={officeForm.room_number}
-                    onChange={e => setOfficeForm({ ...officeForm, room_number: e.target.value })}
-                    placeholder="e.g. 312" style={inputStyle} />
-                </Field>
-                <Field label="Building">
-                  <input value={officeForm.building}
-                    onChange={e => setOfficeForm({ ...officeForm, building: e.target.value })}
-                    placeholder="e.g. Geology Block" style={inputStyle} />
-                </Field>
-                <Field label="Phone">
-                  <input value={officeForm.phone}
-                    onChange={e => setOfficeForm({ ...officeForm, phone: e.target.value })}
-                    placeholder="+251..." style={inputStyle} />
-                </Field>
-                <Field label="Email">
-                  <input value={officeForm.email}
-                    onChange={e => setOfficeForm({ ...officeForm, email: e.target.value })}
-                    placeholder="name@dmu.edu.et" style={inputStyle} />
-                </Field>
-                <Field label="Office Hours">
-                  <input value={officeForm.office_hours}
-                    onChange={e => setOfficeForm({ ...officeForm, office_hours: e.target.value })}
-                    placeholder="Mon–Fri, 9–12" style={inputStyle} />
-                </Field>
-                <Field label="Office Photo">
-                  <input type="file" accept="image/*"
-                    onChange={e => setOfficeForm({ ...officeForm, imageFile: e.target.files[0] })} style={inputStyle} />
-                </Field>
+                <Field label="Staff Name *"><input value={officeForm.staff_name} onChange={e=>setOfficeForm({...officeForm,staff_name:e.target.value})} placeholder="e.g. Dr. Dawit Asmare" style={inputStyle}/></Field>
+                <Field label="Room Number"><input value={officeForm.room_number} onChange={e=>setOfficeForm({...officeForm,room_number:e.target.value})} placeholder="e.g. 312" style={inputStyle}/></Field>
+                <Field label="Building"><input value={officeForm.building} onChange={e=>setOfficeForm({...officeForm,building:e.target.value})} placeholder="e.g. Geology Block" style={inputStyle}/></Field>
+                <Field label="Phone"><input value={officeForm.phone} onChange={e=>setOfficeForm({...officeForm,phone:e.target.value})} placeholder="+251..." style={inputStyle}/></Field>
+                <Field label="Email"><input value={officeForm.email} onChange={e=>setOfficeForm({...officeForm,email:e.target.value})} placeholder="name@dmu.edu.et" style={inputStyle}/></Field>
+                <Field label="Office Hours"><input value={officeForm.office_hours} onChange={e=>setOfficeForm({...officeForm,office_hours:e.target.value})} placeholder="Mon–Fri, 9–12" style={inputStyle}/></Field>
+                <Field label={editingId ? 'Photo (optional)' : 'Office Photo'}><input type="file" accept="image/*" onChange={e=>setOfficeForm({...officeForm,imageFile:e.target.files[0]})} style={inputStyle}/></Field>
               </div>
-              <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
-                <button className="primary" onClick={submitOffice} disabled={busy} style={{ background: '#28a745' }}>
-                  {busy ? 'Uploading...' : '✅ Add Office'}
-                </button>
-                <button className="secondary" onClick={() => setShowForm(false)}>Cancel</button>
+              <div style={{ marginTop: '18px', display: 'flex', gap: '10px' }}>
+                <button className="primary" onClick={submitOffice} disabled={busy} style={{ background: '#28a745' }}>{busy?'Saving...': editingId ? '✅ Update Office' : '✅ Add Office'}</button>
+                <button className="secondary" onClick={resetForm}>Cancel</button>
               </div>
             </div>
           )}
-
-          {offices.length === 0 ? <Empty msg="No staff offices added yet." isStaff={isStaff} /> : (
-            <div style={cardsGrid}>
+          {offices.length === 0 ? <Empty msg="No staff offices added yet." isStaff={isStaff}/> : (
+            <FullWidthGrid>
               {offices.map(o => (
-                <Card key={o.id}>
-                  {o.image_url ? <img src={o.image_url} alt={o.staff_name} style={cardImageStyle} /> : <div style={imagePlaceholderStyle}>🏢</div>}
-                  <div style={cardBodyStyle}>
-                    <h3 style={cardTitleStyle}>{o.staff_name}</h3>
-                    {o.room_number && <p style={cardMetaStyle}>🚪 Room {o.room_number}</p>}
-                    {o.building && <p style={cardMetaStyle}>🏛️ {o.building}</p>}
+                <RowCard key={o.id} image={o.image_url} placeholderIcon="🏢" item={o} tableName="staff_offices" setter={setOffices} onEdit={startEditOffice}>
+                  <h3 style={{ margin: '0 0 12px', color: '#102a43', fontSize: '20px' }}>{o.staff_name}</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '6px 20px' }}>
+                    {o.room_number && <p style={cardMetaStyle}>🚪 <strong>Room:</strong> {o.room_number}</p>}
+                    {o.building && <p style={cardMetaStyle}>🏛️ <strong>Building:</strong> {o.building}</p>}
                     {o.phone && <p style={cardMetaStyle}>📞 {o.phone}</p>}
                     {o.email && <p style={cardMetaStyle}>📧 {o.email}</p>}
                     {o.office_hours && <p style={cardMetaStyle}>🕐 {o.office_hours}</p>}
-                    <p style={cardFooterStyle}>Added by {o.uploaded_by}</p>
-                    {isStaff && user.id === o.user_id && (
-                      <button className="secondary" onClick={() => delItem('staff_offices', o.id, setOffices)}
-                        style={{ color: '#dc3545', marginTop: '8px', fontSize: '12px' }}>🗑️ Delete</button>
-                    )}
                   </div>
-                </Card>
+                </RowCard>
               ))}
-            </div>
+            </FullWidthGrid>
           )}
         </>
       )}
 
-      {/* ================================================== */}
-      {/* ============ REFERENCE BOOKS TAB ================= */}
-      {/* ================================================== */}
+      {/* ================= BOOKS ================= */}
       {tab === 'books' && (
         <>
-          {isStaff && (
-            <div style={{ marginBottom: '20px' }}>
-              <AddBtn label="📝 Add Reference Book" />
-            </div>
-          )}
-
+          {isStaff && <div style={{ marginBottom: '20px' }}><AddBtn label="📝 Add Reference Book" /></div>}
           {isStaff && showForm && (
             <div style={formBoxStyle}>
-              <h3 style={formHeaderStyle}>📚 New Reference Book</h3>
+              <FormHeader icon="📚" title="Reference Book" />
               <div style={gridStyle}>
-                <Field label="Title *">
-                  <input value={bookForm.title}
-                    onChange={e => setBookForm({ ...bookForm, title: e.target.value })}
-                    placeholder="Book title" style={inputStyle} />
-                </Field>
-                <Field label="Author(s)">
-                  <input value={bookForm.author}
-                    onChange={e => setBookForm({ ...bookForm, author: e.target.value })}
-                    placeholder="Author(s)" style={inputStyle} />
-                </Field>
-                <Field label="Edition">
-                  <input value={bookForm.edition}
-                    onChange={e => setBookForm({ ...bookForm, edition: e.target.value })}
-                    placeholder="e.g. 3rd Edition" style={inputStyle} />
-                </Field>
-                <Field label="Year">
-                  <input value={bookForm.year}
-                    onChange={e => setBookForm({ ...bookForm, year: e.target.value })}
-                    placeholder="e.g. 2020" style={inputStyle} />
-                </Field>
-                <Field label="Publisher">
-                  <input value={bookForm.publisher}
-                    onChange={e => setBookForm({ ...bookForm, publisher: e.target.value })}
-                    placeholder="e.g. Wiley" style={inputStyle} />
-                </Field>
-                <Field label="ISBN">
-                  <input value={bookForm.isbn}
-                    onChange={e => setBookForm({ ...bookForm, isbn: e.target.value })}
-                    placeholder="ISBN" style={inputStyle} />
-                </Field>
-                <Field label="Course Code">
-                  <input value={bookForm.course_code}
-                    onChange={e => setBookForm({ ...bookForm, course_code: e.target.value })}
-                    placeholder="e.g. Geol 2011" style={inputStyle} />
-                </Field>
+                <Field label="Title *"><input value={bookForm.title} onChange={e=>setBookForm({...bookForm,title:e.target.value})} placeholder="Book title" style={inputStyle}/></Field>
+                <Field label="Author(s)"><input value={bookForm.author} onChange={e=>setBookForm({...bookForm,author:e.target.value})} placeholder="Author(s)" style={inputStyle}/></Field>
+                <Field label="Edition"><input value={bookForm.edition} onChange={e=>setBookForm({...bookForm,edition:e.target.value})} placeholder="e.g. 3rd Edition" style={inputStyle}/></Field>
+                <Field label="Year"><input value={bookForm.year} onChange={e=>setBookForm({...bookForm,year:e.target.value})} placeholder="e.g. 2020" style={inputStyle}/></Field>
+                <Field label="Publisher"><input value={bookForm.publisher} onChange={e=>setBookForm({...bookForm,publisher:e.target.value})} placeholder="e.g. Wiley" style={inputStyle}/></Field>
+                <Field label="ISBN"><input value={bookForm.isbn} onChange={e=>setBookForm({...bookForm,isbn:e.target.value})} placeholder="ISBN" style={inputStyle}/></Field>
+                <Field label="Course Code"><input value={bookForm.course_code} onChange={e=>setBookForm({...bookForm,course_code:e.target.value})} placeholder="e.g. Geol 2011" style={inputStyle}/></Field>
                 <Field label="Category">
-                  <select value={bookForm.category}
-                    onChange={e => setBookForm({ ...bookForm, category: e.target.value })}
-                    style={inputStyle}>
-                    <option>Reference</option>
-                    <option>Textbook</option>
-                    <option>Research</option>
-                    <option>Manual</option>
-                    <option>Atlas</option>
-                    <option>Other</option>
+                  <select value={bookForm.category} onChange={e=>setBookForm({...bookForm,category:e.target.value})} style={inputStyle}>
+                    <option>Reference</option><option>Textbook</option><option>Research</option>
+                    <option>Manual</option><option>Atlas</option><option>Other</option>
                   </select>
                 </Field>
-                <Field label="Link / URL">
-                  <input value={bookForm.link}
-                    onChange={e => setBookForm({ ...bookForm, link: e.target.value })}
-                    placeholder="https://..." style={inputStyle} />
-                </Field>
-                <Field label="Cover Image">
-                  <input type="file" accept="image/*"
-                    onChange={e => setBookForm({ ...bookForm, coverFile: e.target.files[0] })} style={inputStyle} />
-                </Field>
+                <Field label="Link / URL"><input value={bookForm.link} onChange={e=>setBookForm({...bookForm,link:e.target.value})} placeholder="https://..." style={inputStyle}/></Field>
+                <Field label={editingId ? 'Cover (optional)' : 'Cover Image'}><input type="file" accept="image/*" onChange={e=>setBookForm({...bookForm,coverFile:e.target.files[0]})} style={inputStyle}/></Field>
                 <div style={{ gridColumn: 'span 2' }}>
-                  <Field label="Description">
-                    <textarea value={bookForm.description}
-                      onChange={e => setBookForm({ ...bookForm, description: e.target.value })}
-                      rows="3" placeholder="Notes about this book..." style={inputStyle} />
-                  </Field>
+                  <Field label="Description"><textarea value={bookForm.description} onChange={e=>setBookForm({...bookForm,description:e.target.value})} rows="3" placeholder="Notes..." style={inputStyle}/></Field>
                 </div>
               </div>
-              <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
-                <button className="primary" onClick={submitBook} disabled={busy} style={{ background: '#28a745' }}>
-                  {busy ? 'Uploading...' : '✅ Add Book'}
-                </button>
-                <button className="secondary" onClick={() => setShowForm(false)}>Cancel</button>
+              <div style={{ marginTop: '18px', display: 'flex', gap: '10px' }}>
+                <button className="primary" onClick={submitBook} disabled={busy} style={{ background: '#28a745' }}>{busy?'Saving...': editingId ? '✅ Update Book' : '✅ Add Book'}</button>
+                <button className="secondary" onClick={resetForm}>Cancel</button>
               </div>
             </div>
           )}
-
-          {books.length === 0 ? <Empty msg="No reference books added yet." isStaff={isStaff} /> : (
-            <div style={cardsGrid}>
+          {books.length === 0 ? <Empty msg="No reference books added yet." isStaff={isStaff}/> : (
+            <FullWidthGrid>
               {books.map(b => (
-                <Card key={b.id}>
-                  {b.cover_url ? (
-                    <img src={b.cover_url} alt={b.title} style={{ ...cardImageStyle, objectFit: 'contain', background: '#f8f9fa' }} />
-                  ) : <div style={imagePlaceholderStyle}>📚</div>}
-                  <div style={cardBodyStyle}>
-                    <span style={badgeStyle}>{b.category}</span>
-                    <h3 style={{ ...cardTitleStyle, marginTop: '8px' }}>{b.title}</h3>
-                    {b.author && <p style={cardMetaStyle}>✍️ {b.author}</p>}
+                <RowCard key={b.id} image={b.cover_url} placeholderIcon="📚" item={b} tableName="reference_books" setter={setBooks} onEdit={startEditBook}>
+                  <div style={{ marginBottom: '10px' }}><span style={badgeStyle}>{b.category}</span></div>
+                  <h3 style={{ margin: '0 0 12px', color: '#102a43', fontSize: '20px', lineHeight: '1.3' }}>{b.title}</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '6px 20px' }}>
+                    {b.author && <p style={cardMetaStyle}>✍️ <strong>Author:</strong> {b.author}</p>}
                     {b.edition && <p style={cardMetaStyle}>📖 {b.edition}</p>}
                     {b.year && <p style={cardMetaStyle}>🗓️ {b.year}</p>}
                     {b.publisher && <p style={cardMetaStyle}>🏢 {b.publisher}</p>}
                     {b.course_code && <p style={cardMetaStyle}>📘 {b.course_code}</p>}
-                    {b.description && <p style={cardDescStyle}>{b.description}</p>}
-                    {b.link && (<a href={b.link} target="_blank" rel="noreferrer" style={linkStyle}>🔗 Open Link</a>)}
-                    <p style={cardFooterStyle}>Added by {b.uploaded_by}</p>
-                    {isStaff && user.id === b.user_id && (
-                      <button className="secondary" onClick={() => delItem('reference_books', b.id, setBooks)}
-                        style={{ color: '#dc3545', marginTop: '8px', fontSize: '12px' }}>🗑️ Delete</button>
-                    )}
                   </div>
-                </Card>
+                  {b.description && <p style={{ margin: '10px 0 12px', color: '#444', fontSize: '14px', lineHeight: '1.6' }}>{b.description}</p>}
+                  {b.link && (<a href={b.link} target="_blank" rel="noreferrer" style={linkStyle}>🔗 Open Link</a>)}
+                </RowCard>
               ))}
-            </div>
+            </FullWidthGrid>
           )}
         </>
       )}
 
-      {/* ================================================== */}
-      {/* =================== MAPS TAB ===================== */}
-      {/* ================================================== */}
+      {/* ================= MAPS ================= */}
       {tab === 'maps' && (
         <>
-          {isStaff && (
-            <div style={{ marginBottom: '20px' }}>
-              <AddBtn label="📝 Add Map" />
-            </div>
-          )}
-
+          {isStaff && <div style={{ marginBottom: '20px' }}><AddBtn label="📝 Add Map" /></div>}
           {isStaff && showForm && (
             <div style={formBoxStyle}>
-              <h3 style={formHeaderStyle}>🗺️ New Map</h3>
+              <FormHeader icon="🗺️" title="Map" />
               <div style={gridStyle}>
                 <div style={{ gridColumn: 'span 2' }}>
-                  <Field label="Map Title *">
-                    <input value={mapForm.title}
-                      onChange={e => setMapForm({ ...mapForm, title: e.target.value })}
-                      placeholder="e.g. Geological Map of Ethiopia (1:2,000,000)" style={inputStyle} />
-                  </Field>
+                  <Field label="Map Title *"><input value={mapForm.title} onChange={e=>setMapForm({...mapForm,title:e.target.value})} placeholder="e.g. Geological Map of Ethiopia" style={inputStyle}/></Field>
                 </div>
                 <Field label="Map Type">
-                  <select value={mapForm.map_type}
-                    onChange={e => setMapForm({ ...mapForm, map_type: e.target.value })}
-                    style={inputStyle}>
-                    <option>Geological Map</option>
-                    <option>Topographic Map</option>
-                    <option>Structural Map</option>
-                    <option>Mineral Resources Map</option>
-                    <option>Hydrogeological Map</option>
-                    <option>Soil Map</option>
-                    <option>Tectonic Map</option>
-                    <option>Land Use Map</option>
-                    <option>Other</option>
+                  <select value={mapForm.map_type} onChange={e=>setMapForm({...mapForm,map_type:e.target.value})} style={inputStyle}>
+                    <option>Geological Map</option><option>Topographic Map</option><option>Structural Map</option>
+                    <option>Mineral Resources Map</option><option>Hydrogeological Map</option><option>Soil Map</option>
+                    <option>Tectonic Map</option><option>Land Use Map</option><option>Other</option>
                   </select>
                 </Field>
-                <Field label="Scale">
-                  <input value={mapForm.scale}
-                    onChange={e => setMapForm({ ...mapForm, scale: e.target.value })}
-                    placeholder="e.g. 1:50,000" style={inputStyle} />
-                </Field>
-                <Field label="Region / Area">
-                  <input value={mapForm.region}
-                    onChange={e => setMapForm({ ...mapForm, region: e.target.value })}
-                    placeholder="e.g. Blue Nile Basin" style={inputStyle} />
-                </Field>
-                <Field label="Year">
-                  <input value={mapForm.year}
-                    onChange={e => setMapForm({ ...mapForm, year: e.target.value })}
-                    placeholder="e.g. 2020" style={inputStyle} />
-                </Field>
-                <Field label="Publisher / Source">
-                  <input value={mapForm.publisher}
-                    onChange={e => setMapForm({ ...mapForm, publisher: e.target.value })}
-                    placeholder="e.g. Geological Survey of Ethiopia" style={inputStyle} />
-                </Field>
-                <Field label="Preview Image">
-                  <input type="file" accept="image/*"
-                    onChange={e => setMapForm({ ...mapForm, imageFile: e.target.files[0] })} style={inputStyle} />
-                </Field>
-                <Field label="Map File (PDF / Image)">
-                  <input type="file" accept=".pdf,image/*"
-                    onChange={e => setMapForm({ ...mapForm, file: e.target.files[0] })} style={inputStyle} />
-                </Field>
+                <Field label="Scale"><input value={mapForm.scale} onChange={e=>setMapForm({...mapForm,scale:e.target.value})} placeholder="e.g. 1:50,000" style={inputStyle}/></Field>
+                <Field label="Region / Area"><input value={mapForm.region} onChange={e=>setMapForm({...mapForm,region:e.target.value})} placeholder="e.g. Blue Nile Basin" style={inputStyle}/></Field>
+                <Field label="Year"><input value={mapForm.year} onChange={e=>setMapForm({...mapForm,year:e.target.value})} placeholder="e.g. 2020" style={inputStyle}/></Field>
+                <Field label="Publisher"><input value={mapForm.publisher} onChange={e=>setMapForm({...mapForm,publisher:e.target.value})} placeholder="e.g. GSE" style={inputStyle}/></Field>
+                <Field label={editingId ? 'Preview Image (optional)' : 'Preview Image'}><input type="file" accept="image/*" onChange={e=>setMapForm({...mapForm,imageFile:e.target.files[0]})} style={inputStyle}/></Field>
+                <Field label={editingId ? 'Map File (optional)' : 'Map File (PDF / Image)'}><input type="file" accept=".pdf,image/*" onChange={e=>setMapForm({...mapForm,file:e.target.files[0]})} style={inputStyle}/></Field>
                 <div style={{ gridColumn: 'span 2' }}>
-                  <Field label="Description">
-                    <textarea value={mapForm.description}
-                      onChange={e => setMapForm({ ...mapForm, description: e.target.value })}
-                      rows="3" placeholder="Notes about this map..." style={inputStyle} />
-                  </Field>
+                  <Field label="Description"><textarea value={mapForm.description} onChange={e=>setMapForm({...mapForm,description:e.target.value})} rows="3" placeholder="Notes about this map..." style={inputStyle}/></Field>
                 </div>
               </div>
-              <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
-                <button className="primary" onClick={submitMap} disabled={busy} style={{ background: '#28a745' }}>
-                  {busy ? 'Uploading...' : '✅ Add Map'}
-                </button>
-                <button className="secondary" onClick={() => setShowForm(false)}>Cancel</button>
+              <div style={{ marginTop: '18px', display: 'flex', gap: '10px' }}>
+                <button className="primary" onClick={submitMap} disabled={busy} style={{ background: '#28a745' }}>{busy?'Saving...': editingId ? '✅ Update Map' : '✅ Add Map'}</button>
+                <button className="secondary" onClick={resetForm}>Cancel</button>
               </div>
             </div>
           )}
-
-          {maps.length === 0 ? <Empty msg="No maps added yet." isStaff={isStaff} /> : (
-            <div style={cardsGrid}>
+          {maps.length === 0 ? <Empty msg="No maps added yet." isStaff={isStaff}/> : (
+            <FullWidthGrid>
               {maps.map(m => (
-                <Card key={m.id}>
-                  {m.image_url ? (
-                    <img src={m.image_url} alt={m.title} style={{ ...cardImageStyle, objectFit: 'contain', background: '#f8f9fa' }} />
-                  ) : (
-                    <div style={imagePlaceholderStyle}>🗺️</div>
-                  )}
-                  <div style={cardBodyStyle}>
-                    <span style={badgeStyle}>{m.map_type}</span>
-                    <h3 style={{ ...cardTitleStyle, marginTop: '8px' }}>{m.title}</h3>
-                    {m.scale && <p style={cardMetaStyle}>📐 Scale: {m.scale}</p>}
+                <RowCard key={m.id} image={m.image_url} placeholderIcon="🗺️" item={m} tableName="maps" setter={setMaps} onEdit={startEditMap}>
+                  <div style={{ marginBottom: '10px' }}><span style={badgeStyle}>{m.map_type}</span></div>
+                  <h3 style={{ margin: '0 0 12px', color: '#102a43', fontSize: '20px', lineHeight: '1.3' }}>{m.title}</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '6px 20px' }}>
+                    {m.scale && <p style={cardMetaStyle}>📐 <strong>Scale:</strong> {m.scale}</p>}
                     {m.region && <p style={cardMetaStyle}>📍 {m.region}</p>}
                     {m.year && <p style={cardMetaStyle}>🗓️ {m.year}</p>}
                     {m.publisher && <p style={cardMetaStyle}>🏛️ {m.publisher}</p>}
-                    {m.description && <p style={cardDescStyle}>{m.description}</p>}
-                    {m.file_url && (
-                      <a href={m.file_url} target="_blank" rel="noreferrer" style={linkStyle}>
-                        📥 Open / Download Map
-                      </a>
-                    )}
-                    <p style={cardFooterStyle}>Added by {m.uploaded_by}</p>
-                    {isStaff && user.id === m.user_id && (
-                      <button className="secondary" onClick={() => delItem('maps', m.id, setMaps)}
-                        style={{ color: '#dc3545', marginTop: '8px', fontSize: '12px' }}>🗑️ Delete</button>
-                    )}
                   </div>
-                </Card>
+                  {m.description && <p style={{ margin: '10px 0 12px', color: '#444', fontSize: '14px', lineHeight: '1.6' }}>{m.description}</p>}
+                  {m.file_url && (<a href={m.file_url} target="_blank" rel="noreferrer" style={linkStyle}>📥 Open / Download Map</a>)}
+                </RowCard>
               ))}
-            </div>
+            </FullWidthGrid>
           )}
         </>
       )}
@@ -1753,40 +1968,21 @@ function Field({ label, children }) {
     </div>
   );
 }
-function Card({ children }) {
-  return (
-    <article style={{
-      background: 'white', border: '1px solid #dbe4ec',
-      borderRadius: '12px', overflow: 'hidden',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-      display: 'flex', flexDirection: 'column'
-    }}>{children}</article>
-  );
-}
 function Empty({ msg, isStaff }) {
   return (
-    <div style={{ textAlign: 'center', padding: '50px 20px', background: '#f8f9fa', borderRadius: '12px' }}>
+    <div style={{ textAlign: 'center', padding: '60px 30px', background: 'linear-gradient(135deg, #f8f9fa, #ffffff)', borderRadius: '16px', border: '1px dashed #dbe4ec' }}>
+      <div style={{ fontSize: '56px', marginBottom: '10px' }}>📂</div>
       <h3 style={{ color: '#102a43', margin: '0 0 8px' }}>{msg}</h3>
-      <p style={{ color: '#66788a', margin: 0 }}>
-        {isStaff ? 'Click the green "Add" button above to upload.' : 'Check back later.'}
-      </p>
+      <p style={{ color: '#66788a', margin: 0 }}>{isStaff ? 'Click the green "Add" button above to upload.' : 'Check back later.'}</p>
     </div>
   );
 }
-const formBoxStyle = { background: '#f8f9fa', padding: '20px', borderRadius: '12px', marginBottom: '25px', border: '1px solid #dbe4ec' };
-const formHeaderStyle = { color: '#102a43', marginTop: 0, marginBottom: '15px' };
-const gridStyle = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' };
+const formBoxStyle = { background: 'linear-gradient(135deg, #f8f9fa, #ffffff)', padding: '26px', borderRadius: '14px', marginBottom: '30px', border: '1px solid #dbe4ec', boxShadow: '0 4px 14px rgba(0,0,0,0.05)' };
+const gridStyle = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' };
 const inputStyle = { width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' };
-const cardsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' };
-const cardImageStyle = { width: '100%', height: '200px', objectFit: 'cover' };
-const imagePlaceholderStyle = { width: '100%', height: '200px', background: 'linear-gradient(135deg, #1a3a5c, #1769aa)', display: 'grid', placeItems: 'center', color: 'white', fontSize: '48px' };
-const cardBodyStyle = { padding: '18px', display: 'flex', flexDirection: 'column', flex: 1 };
-const cardTitleStyle = { margin: '4px 0 8px', color: '#102a43', fontSize: '17px' };
 const cardMetaStyle = { margin: '3px 0', color: '#66788a', fontSize: '13px' };
-const cardDescStyle = { margin: '10px 0', color: '#444', fontSize: '14px', lineHeight: '1.5' };
-const cardFooterStyle = { margin: 'auto 0 0', paddingTop: '10px', fontSize: '11px', color: '#999' };
-const badgeStyle = { background: '#1769aa', color: 'white', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '600', alignSelf: 'flex-start' };
-const linkStyle = { display: 'inline-block', marginTop: '10px', padding: '6px 14px', background: '#1769aa', color: 'white', borderRadius: '6px', textDecoration: 'none', fontSize: '13px' };
+const badgeStyle = { background: '#1769aa', color: 'white', padding: '4px 12px', borderRadius: '12px', fontSize: '11px', fontWeight: '700', display: 'inline-block', letterSpacing: '0.5px', textTransform: 'uppercase' };
+const linkStyle = { display: 'inline-block', marginTop: '10px', padding: '8px 16px', background: '#1769aa', color: 'white', borderRadius: '6px', textDecoration: 'none', fontSize: '13px', fontWeight: '600' };
 function Contact(){return <Page title="Contact" kicker="GET IN TOUCH"><div><h2>Department of Geology</h2><p>Debre Markos University, Ethiopia</p></div></Page>}
 
 function Academics({ navigate, user, meta }) {
