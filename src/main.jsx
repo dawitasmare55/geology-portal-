@@ -481,29 +481,15 @@ function Homepage({ navigate, activeCourses, students, user, meta }) {
         <Stat icon={<FileText/>} n="100+" label="Course Capacity"/>
       </section>
       <section className="section">
-  <div style={{
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
-    gap: '40px',
-    alignItems: 'center',
-    marginBottom: '40px'
-  }}>
-    {/* LEFT: Video */}
-    <HomeVideo user={user} meta={meta} />
-
-    {/* RIGHT: Welcome text */}
-    <div>
-      <SectionTitle kicker="WELCOME TO DMU GEOLOGY" title="A Center for Geological Education & Research"/>
-    </div>
-  </div>
-
-  <div className="cards four">
-    <Feature icon={<GraduationCap/>} title="Academic Programs" text="Explore our BSc geology curriculum." onClick={()=>navigate("academics")}/>
-    <Feature icon={<BookOpen/>} title="Courses & Materials" text="Access active courses and resources." onClick={()=>navigate("courses")}/>
-    <Feature icon={<Microscope/>} title="Research" text="Discover geological research." onClick={()=>navigate("research")}/>
-    <Feature icon={<Users/>} title="Our Students" text="Student services." onClick={()=>navigate("students")}/>
-  </div>
-</section>
+        <SectionTitle kicker="WELCOME TO DMU GEOLOGY" title="A Center for Geological Education & Research"/>
+        <div className="cards four">
+          <Feature icon={<GraduationCap/>} title="Academic Programs" text="Explore our BSc geology curriculum." onClick={()=>navigate("academics")}/>
+          <Feature icon={<BookOpen/>} title="Courses & Materials" text="Access active courses and resources." onClick={()=>navigate("courses")}/>
+          <Feature icon={<Microscope/>} title="Research" text="Discover geological research." onClick={()=>navigate("research")}/>
+          <Feature icon={<Users/>} title="Our Students" text="Student services." onClick={()=>navigate("students")}/>
+        </div>
+      </section>
+      <HomeVideo user={user} meta={meta} />
     </main>
   );
 }
@@ -3827,6 +3813,7 @@ function HomeVideo({ user, meta }) {
   const [caption, setCaption] = useState('');
   const isStaff = meta?.role === 'staff';
 
+  // Load saved video + caption
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from('home_video').select('*').eq('id', 1).maybeSingle();
@@ -3869,98 +3856,109 @@ function HomeVideo({ user, meta }) {
   };
 
   return (
-    <div>
-      {videoUrl ? (
-        <>
-          <video
-            controls
-            style={{
-              width: '100%',
-              maxHeight: '420px',
-              borderRadius: '12px',
-              background: '#000',
-              display: 'block',
-              boxShadow: '0 4px 14px rgba(0,0,0,0.08)'
-            }}
-            src={videoUrl}
-          >
-            Your browser does not support the video tag.
-          </video>
-          {caption && (
-            <p style={{
-              margin: '12px 0 0',
-              textAlign: 'center',
-              color: '#66788a',
-              fontSize: '14px',
-              fontStyle: 'italic'
-            }}>
-              {caption}
+    <section className="section" style={{ marginTop: '40px' }}>
+      <SectionTitle
+        kicker="OUR DEPARTMENT IN MOTION"
+        title="Department of Geology — Highlights"
+        text="A glimpse into our classrooms, labs, and field activities."
+      />
+
+      <div style={{
+        background: 'white',
+        border: '1px solid #dbe4ec',
+        borderRadius: '14px',
+        padding: '20px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+      }}>
+        {videoUrl ? (
+          <>
+            <video
+              controls
+              style={{
+                width: '100%',
+                maxHeight: '520px',
+                borderRadius: '10px',
+                background: '#000',
+                display: 'block'
+              }}
+              src={videoUrl}
+            >
+              Your browser does not support the video tag.
+            </video>
+            {caption && (
+              <p style={{
+                margin: '15px 0 0',
+                textAlign: 'center',
+                color: '#66788a',
+                fontSize: '14px',
+                fontStyle: 'italic'
+              }}>
+                {caption}
+              </p>
+            )}
+          </>
+        ) : (
+          <div style={{
+            textAlign: 'center',
+            padding: '60px 20px',
+            background: '#f8f9fa',
+            borderRadius: '10px',
+            color: '#66788a'
+          }}>
+            <PlayCircle size={52} color="#1769aa" />
+            <h3 style={{ color: '#102a43', marginTop: '12px' }}>No video yet</h3>
+            <p style={{ margin: 0 }}>
+              {isStaff ? 'Upload a short video below to display it here.' : 'Check back later.'}
             </p>
-          )}
-        </>
-      ) : (
-        <div style={{
-          textAlign: 'center',
-          padding: '60px 20px',
-          background: '#f8f9fa',
-          borderRadius: '12px',
-          border: '1px dashed #dbe4ec',
-          color: '#66788a'
-        }}>
-          <PlayCircle size={52} color="#1769aa" />
-          <h3 style={{ color: '#102a43', marginTop: '12px' }}>No video yet</h3>
-          <p style={{ margin: 0 }}>
-            {isStaff ? 'Upload a short video below to display it here.' : 'Check back later.'}
-          </p>
-        </div>
-      )}
+          </div>
+        )}
 
-      {isStaff && (
-        <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #eef3f6' }}>
-          <h4 style={{ color: '#102a43', marginTop: 0, fontSize: '14px' }}>Manage Video</h4>
+        {isStaff && (
+          <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #eef3f6' }}>
+            <h4 style={{ color: '#102a43', marginTop: 0 }}>Manage Video</h4>
 
-          <div style={{ display: 'grid', gap: '10px' }}>
-            <div>
-              <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px', fontSize: '13px' }}>
-                Upload Video (MP4, max 50MB)
-              </label>
-              <input
-                type="file"
-                accept="video/mp4,video/webm,video/quicktime"
-                onChange={(e) => upload(e.target.files[0])}
-                disabled={busy}
-                style={{ fontSize: '13px' }}
-              />
-              {busy && <span style={{ marginLeft: '10px', color: '#66788a' }}>Uploading...</span>}
-            </div>
+            <div style={{ display: 'grid', gap: '10px' }}>
+              <div>
+                <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px', fontSize: '13px' }}>
+                  Upload Video (MP4, max 50MB)
+                </label>
+                <input
+                  type="file"
+                  accept="video/mp4,video/webm,video/quicktime"
+                  onChange={(e) => upload(e.target.files[0])}
+                  disabled={busy}
+                />
+                {busy && <span style={{ marginLeft: '10px', color: '#66788a' }}>Uploading...</span>}
+              </div>
 
-            <div>
-              <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px', fontSize: '13px' }}>
-                Caption (optional)
-              </label>
-              <input
-                type="text"
-                value={caption}
-                onChange={(e) => setCaption(e.target.value)}
-                placeholder="e.g. Field trip to the Blue Nile Gorge, 2025"
-                style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '6px', fontSize: '13px' }}
-              />
-            </div>
+              <div>
+                <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px', fontSize: '13px' }}>
+                  Caption (optional)
+                </label>
+                <input
+                  type="text"
+                  value={caption}
+                  onChange={(e) => setCaption(e.target.value)}
+                  placeholder="e.g. Field trip to the Blue Nile Gorge, 2025"
+                  style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '6px' }}
+                />
+              </div>
 
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <button className="primary" onClick={saveCaption} style={{ background: '#28a745', fontSize: '13px' }}>
-                💾 Save Caption
-              </button>
-              {videoUrl && (
-                <button className="secondary" onClick={removeVideo} style={{ color: '#dc3545', fontSize: '13px' }}>
-                  🗑️ Remove Video
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="primary" onClick={saveCaption} style={{ background: '#28a745' }}>
+                  💾 Save Caption
                 </button>
-              )}
+                {videoUrl && (
+                  <button className="secondary" onClick={removeVideo} style={{ color: '#dc3545' }}>
+                    🗑️ Remove Video
+                  </button>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </section>
   );
 }
 function AppRoot(){ return <App/>; }
