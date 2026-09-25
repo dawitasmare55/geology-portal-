@@ -933,35 +933,55 @@ function Activities({ user, meta }) {
   );
 }
 function Resources({ user, meta }) {
-  const [tab, setTab] = useState('labs'); // labs | equipment | offices | books
+  const [tab, setTab] = useState('labs');
   const [labs, setLabs] = useState([]);
   const [equipment, setEquipment] = useState([]);
   const [offices, setOffices] = useState([]);
   const [books, setBooks] = useState([]);
+  const [maps, setMaps] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const isStaff = meta?.role === 'staff';
 
-  const [labForm, setLabForm] = useState({ name:'', description:'', capacity:'', location:'', imageFile:null });
-  const [equipForm, setEquipForm] = useState({
-    name:'', category:'Microscope', model:'', serial_number:'', quantity:1,
-    condition:'Working', lab_name:'', specifications:'', description:'', imageFile:null
+  const [labForm, setLabForm] = useState({
+    name: '', description: '', capacity: '', location: '', imageFile: null
   });
-  const [officeForm, setOfficeForm] = useState({ staff_name:'', room_number:'', building:'', phone:'', email:'', office_hours:'', imageFile:null });
-  const [bookForm, setBookForm] = useState({ title:'', author:'', edition:'', year:'', publisher:'', isbn:'', course_code:'', category:'Reference', description:'', link:'', coverFile:null });
+  const [equipForm, setEquipForm] = useState({
+    name: '', category: 'Microscope', custom_category: '', model: '', serial_number: '',
+    quantity: 1, condition: 'Working', lab_name: '', specifications: '', description: '', imageFile: null
+  });
+  const [officeForm, setOfficeForm] = useState({
+    staff_name: '', room_number: '', building: '', phone: '', email: '', office_hours: '', imageFile: null
+  });
+  const [bookForm, setBookForm] = useState({
+    title: '', author: '', edition: '', year: '', publisher: '', isbn: '',
+    course_code: '', category: 'Reference', description: '', link: '', coverFile: null
+  });
+  const [mapForm, setMapForm] = useState({
+    title: '', map_type: 'Geological Map', scale: '', region: '', year: '',
+    publisher: '', description: '', imageFile: null, file: null
+  });
 
+  // Load all data
   useEffect(() => {
     (async () => {
       const { data: l } = await supabase.from('lab_rooms').select('*').order('created_at', { ascending: false });
       const { data: e } = await supabase.from('lab_equipment').select('*').order('created_at', { ascending: false });
       const { data: o } = await supabase.from('staff_offices').select('*').order('staff_name');
       const { data: b } = await supabase.from('reference_books').select('*').order('title');
-      setLabs(l || []); setEquipment(e || []); setOffices(o || []); setBooks(b || []);
+      const { data: m } = await supabase.from('maps').select('*').order('created_at', { ascending: false });
+      setLabs(l || []);
+      setEquipment(e || []);
+      setOffices(o || []);
+      setBooks(b || []);
+      setMaps(m || []);
     })();
   }, []);
 
   useEffect(() => { setShowForm(false); }, [tab]);
+
+  // ========== SUBMIT FUNCTIONS ==========
 
   const submitLab = async () => {
     if (!labForm.name.trim()) return alert('Lab name required.');
@@ -981,7 +1001,7 @@ function Resources({ user, meta }) {
     setBusy(false);
     if (error) return alert(error.message);
     setLabs(prev => [...(data || []), ...prev]);
-    setLabForm({ name:'', description:'', capacity:'', location:'', imageFile:null });
+    setLabForm({ name: '', description: '', capacity: '', location: '', imageFile: null });
     setShowForm(false);
     alert('✅ Lab room added!');
   };
@@ -989,12 +1009,19 @@ function Resources({ user, meta }) {
   const submitEquip = async () => {
     if (!equipForm.name.trim()) return alert('Equipment name required.');
     if (!equipForm.imageFile) return alert('Photo required.');
+    if (equipForm.category === 'Other' && !equipForm.custom_category.trim()) {
+      return alert('Please type the new category name since you chose "Other".');
+    }
+    const finalCategory = equipForm.category === 'Other'
+      ? equipForm.custom_category.trim()
+      : equipForm.category;
+
     setBusy(true);
     const up = await uploadToStorage('resources', equipForm.imageFile);
     if (!up) { setBusy(false); return alert('Upload failed.'); }
     const { data, error } = await supabase.from('lab_equipment').insert([{
       name: equipForm.name.trim(),
-      category: equipForm.category,
+      category: finalCategory,
       model: equipForm.model.trim(),
       serial_number: equipForm.serial_number.trim(),
       quantity: parseInt(equipForm.quantity) || 1,
@@ -1010,8 +1037,8 @@ function Resources({ user, meta }) {
     if (error) return alert(error.message);
     setEquipment(prev => [...(data || []), ...prev]);
     setEquipForm({
-      name:'', category:'Microscope', model:'', serial_number:'', quantity:1,
-      condition:'Working', lab_name:'', specifications:'', description:'', imageFile:null
+      name: '', category: 'Microscope', custom_category: '', model: '', serial_number: '',
+      quantity: 1, condition: 'Working', lab_name: '', specifications: '', description: '', imageFile: null
     });
     setShowForm(false);
     alert('✅ Equipment added!');
@@ -1039,7 +1066,7 @@ function Resources({ user, meta }) {
     setBusy(false);
     if (error) return alert(error.message);
     setOffices(prev => [...(data || []), ...prev]);
-    setOfficeForm({ staff_name:'', room_number:'', building:'', phone:'', email:'', office_hours:'', imageFile:null });
+    setOfficeForm({ staff_name: '', room_number: '', building: '', phone: '', email: '', office_hours: '', imageFile: null });
     setShowForm(false);
     alert('✅ Office added!');
   };
@@ -1070,9 +1097,49 @@ function Resources({ user, meta }) {
     setBusy(false);
     if (error) return alert(error.message);
     setBooks(prev => [...(data || []), ...prev]);
-    setBookForm({ title:'', author:'', edition:'', year:'', publisher:'', isbn:'', course_code:'', category:'Reference', description:'', link:'', coverFile:null });
+    setBookForm({ title: '', author: '', edition: '', year: '', publisher: '', isbn: '', course_code: '', category: 'Reference', description: '', link: '', coverFile: null });
     setShowForm(false);
     alert('✅ Book added!');
+  };
+
+  const submitMap = async () => {
+    if (!mapForm.title.trim()) return alert('Map title required.');
+    if (!mapForm.imageFile && !mapForm.file) {
+      return alert('Please upload at least an image or a file of the map.');
+    }
+    setBusy(true);
+    let imageUrl = '';
+    let fileUrl = '';
+    if (mapForm.imageFile) {
+      const up = await uploadToStorage('resources', mapForm.imageFile);
+      if (up) imageUrl = up.url;
+    }
+    if (mapForm.file) {
+      const up = await uploadToStorage('resources', mapForm.file);
+      if (up) fileUrl = up.url;
+    }
+    const { data, error } = await supabase.from('maps').insert([{
+      title: mapForm.title.trim(),
+      map_type: mapForm.map_type,
+      scale: mapForm.scale.trim(),
+      region: mapForm.region.trim(),
+      year: mapForm.year.trim(),
+      publisher: mapForm.publisher.trim(),
+      description: mapForm.description.trim(),
+      image_url: imageUrl,
+      file_url: fileUrl,
+      uploaded_by: meta?.name,
+      user_id: user.id,
+    }]).select();
+    setBusy(false);
+    if (error) return alert(error.message);
+    setMaps(prev => [...(data || []), ...prev]);
+    setMapForm({
+      title: '', map_type: 'Geological Map', scale: '', region: '', year: '',
+      publisher: '', description: '', imageFile: null, file: null
+    });
+    setShowForm(false);
+    alert('✅ Map added!');
   };
 
   const delItem = async (table, id, setter) => {
@@ -1081,320 +1148,635 @@ function Resources({ user, meta }) {
     setter(prev => prev.filter(x => x.id !== id));
   };
 
-  const Tab = ({ id, label }) => (
+  const condColor = (c) => ({
+    'Working':       { bg: '#d4edda', fg: '#155724' },
+    'Needs Repair':  { bg: '#fff3cd', fg: '#856404' },
+    'Under Service': { bg: '#cce5ff', fg: '#004085' },
+    'Retired':       { bg: '#f8d7da', fg: '#721c24' },
+  })[c] || { bg: '#e2e3e5', fg: '#383d41' };
+
+  const TabBtn = ({ id, label }) => (
     <button onClick={() => setTab(id)} style={{
-      padding: '14px 22px', border: 'none',
+      padding: '14px 22px',
+      border: 'none',
       background: tab === id ? '#1769aa' : 'white',
       color: tab === id ? 'white' : '#102a43',
-      borderTopLeftRadius: '10px', borderTopRightRadius: '10px',
-      cursor: 'pointer', fontWeight: '600', fontSize: '14px',
+      borderTopLeftRadius: '10px',
+      borderTopRightRadius: '10px',
+      cursor: 'pointer',
+      fontWeight: '600',
+      fontSize: '14px',
       borderBottom: tab === id ? '3px solid #1769aa' : '3px solid transparent',
     }}>{label}</button>
   );
 
-  const condColor = (c) => ({
-    'Working':       { bg:'#d4edda', fg:'#155724' },
-    'Needs Repair':  { bg:'#fff3cd', fg:'#856404' },
-    'Under Service': { bg:'#cce5ff', fg:'#004085' },
-    'Retired':       { bg:'#f8d7da', fg:'#721c24' },
-  })[c] || { bg:'#e2e3e5', fg:'#383d41' };
+  const AddBtn = ({ label }) => (
+    <button className="primary" onClick={() => setShowForm(!showForm)} style={{ background: '#28a745' }}>
+      {showForm ? '📕 Close Form' : label}
+    </button>
+  );
 
   return (
     <Page title="Academic Resources" kicker="LEARNING CENTER">
 
-      {/* Tabs */}
-      <div style={{ display:'flex', gap:'6px', flexWrap:'wrap', borderBottom:'2px solid #dbe4ec', marginBottom:'25px' }}>
-        <Tab id="labs"      label={`🔬 Laboratory Rooms (${labs.length})`} />
-        <Tab id="equipment" label={`🧪 Lab Equipment (${equipment.length})`} />
-        <Tab id="offices"   label={`🏢 Staff Offices (${offices.length})`} />
-        <Tab id="books"     label={`📚 Reference Books (${books.length})`} />
+      {/* ============ TABS ============ */}
+      <div style={{
+        display: 'flex', gap: '6px', flexWrap: 'wrap',
+        borderBottom: '2px solid #dbe4ec', marginBottom: '25px'
+      }}>
+        <TabBtn id="labs"      label={`🔬 Laboratory Rooms (${labs.length})`} />
+        <TabBtn id="equipment" label={`🧪 Lab Equipment (${equipment.length})`} />
+        <TabBtn id="offices"   label={`🏢 Staff Offices (${offices.length})`} />
+        <TabBtn id="books"     label={`📚 Reference Books (${books.length})`} />
+        <TabBtn id="maps"      label={`🗺️ Maps (${maps.length})`} />
       </div>
 
-      {/* Upload button */}
-      {isStaff && (
-        <div style={{ textAlign:'right', marginBottom:'20px' }}>
-          <button className="primary" onClick={()=>setShowForm(!showForm)} style={{background:'#28a745'}}>
-            {showForm ? '📕 Close Form' : (
-              tab === 'labs' ? '📝 Add Lab Room' :
-              tab === 'equipment' ? '📝 Add Equipment' :
-              tab === 'offices' ? '📝 Add Office' : '📝 Add Reference Book'
-            )}
-          </button>
-        </div>
-      )}
-
-      {/* ============ FORMS ============ */}
-
-      {isStaff && showForm && tab === 'labs' && (
-        <div style={formBoxStyle}>
-          <h3 style={formHeaderStyle}>🔬 New Lab Room</h3>
-          <div style={gridStyle}>
-            <Field label="Lab Name *"><input value={labForm.name} onChange={e=>setLabForm({...labForm,name:e.target.value})} placeholder="e.g. Petrology Laboratory" style={inputStyle}/></Field>
-            <Field label="Location"><input value={labForm.location} onChange={e=>setLabForm({...labForm,location:e.target.value})} placeholder="e.g. Block 4, Room 201" style={inputStyle}/></Field>
-            <Field label="Capacity"><input value={labForm.capacity} onChange={e=>setLabForm({...labForm,capacity:e.target.value})} placeholder="e.g. 30 students" style={inputStyle}/></Field>
-            <Field label="Photo *"><input type="file" accept="image/*" onChange={e=>setLabForm({...labForm,imageFile:e.target.files[0]})} style={inputStyle}/></Field>
-            <div style={{gridColumn:'span 2'}}>
-              <Field label="Description"><textarea value={labForm.description} onChange={e=>setLabForm({...labForm,description:e.target.value})} rows="3" placeholder="Equipment, purpose, notes..." style={inputStyle}/></Field>
+      {/* ================================================== */}
+      {/* ================ LAB ROOMS TAB =================== */}
+      {/* ================================================== */}
+      {tab === 'labs' && (
+        <>
+          {isStaff && (
+            <div style={{ marginBottom: '20px' }}>
+              <AddBtn label="📝 Add Lab Room" />
             </div>
-          </div>
-          <div style={{marginTop:'15px', display:'flex', gap:'10px'}}>
-            <button className="primary" onClick={submitLab} disabled={busy} style={{background:'#28a745'}}>{busy?'Uploading...':'✅ Add Lab'}</button>
-            <button className="secondary" onClick={()=>setShowForm(false)}>Cancel</button>
-          </div>
-        </div>
-      )}
+          )}
 
-      {isStaff && showForm && tab === 'equipment' && (
-        <div style={formBoxStyle}>
-          <h3 style={formHeaderStyle}>🧪 New Lab Equipment</h3>
-          <div style={gridStyle}>
-            <Field label="Equipment Name *"><input value={equipForm.name} onChange={e=>setEquipForm({...equipForm,name:e.target.value})} placeholder="e.g. Polarizing Microscope" style={inputStyle}/></Field>
-            <Field label="Category">
-              <select value={equipForm.category} onChange={e=>setEquipForm({...equipForm,category:e.target.value})} style={inputStyle}>
-                <option>Microscope</option>
-                <option>Rock Cutting Saw</option>
-                <option>Sieve Set</option>
-                <option>GPS Receiver</option>
-                <option>Compass-Clinometer</option>
-                <option>Hammer & Chisel</option>
-                <option>Hand Lens</option>
-                <option>Spectrometer</option>
-                <option>XRF Analyzer</option>
-                <option>Oven / Furnace</option>
-                <option>Balance / Scale</option>
-                <option>Sample Splitter</option>
-                <option>Thin Sectioning Kit</option>
-                <option>Other</option>
-              </select>
-            </Field>
-            <Field label="Model"><input value={equipForm.model} onChange={e=>setEquipForm({...equipForm,model:e.target.value})} placeholder="e.g. Nikon Eclipse LV100" style={inputStyle}/></Field>
-            <Field label="Serial Number"><input value={equipForm.serial_number} onChange={e=>setEquipForm({...equipForm,serial_number:e.target.value})} placeholder="e.g. SN-2023-0451" style={inputStyle}/></Field>
-            <Field label="Quantity"><input type="number" value={equipForm.quantity} onChange={e=>setEquipForm({...equipForm,quantity:e.target.value})} min="1" style={inputStyle}/></Field>
-            <Field label="Condition">
-              <select value={equipForm.condition} onChange={e=>setEquipForm({...equipForm,condition:e.target.value})} style={inputStyle}>
-                <option>Working</option>
-                <option>Needs Repair</option>
-                <option>Under Service</option>
-                <option>Retired</option>
-              </select>
-            </Field>
-            <Field label="Located in Lab"><input value={equipForm.lab_name} onChange={e=>setEquipForm({...equipForm,lab_name:e.target.value})} placeholder="e.g. Petrology Laboratory" style={inputStyle}/></Field>
-            <Field label="Photo *"><input type="file" accept="image/*" onChange={e=>setEquipForm({...equipForm,imageFile:e.target.files[0]})} style={inputStyle}/></Field>
-            <div style={{gridColumn:'span 2'}}>
-              <Field label="Specifications"><textarea value={equipForm.specifications} onChange={e=>setEquipForm({...equipForm,specifications:e.target.value})} rows="2" placeholder="Technical specs, capacity, resolution..." style={inputStyle}/></Field>
-            </div>
-            <div style={{gridColumn:'span 2'}}>
-              <Field label="Description / Usage"><textarea value={equipForm.description} onChange={e=>setEquipForm({...equipForm,description:e.target.value})} rows="3" placeholder="What is this equipment used for? Who can access it?" style={inputStyle}/></Field>
-            </div>
-          </div>
-          <div style={{marginTop:'15px', display:'flex', gap:'10px'}}>
-            <button className="primary" onClick={submitEquip} disabled={busy} style={{background:'#28a745'}}>{busy?'Uploading...':'✅ Add Equipment'}</button>
-            <button className="secondary" onClick={()=>setShowForm(false)}>Cancel</button>
-          </div>
-        </div>
-      )}
-
-      {isStaff && showForm && tab === 'offices' && (
-        <div style={formBoxStyle}>
-          <h3 style={formHeaderStyle}>🏢 New Staff Office</h3>
-          <div style={gridStyle}>
-            <Field label="Staff Name *"><input value={officeForm.staff_name} onChange={e=>setOfficeForm({...officeForm,staff_name:e.target.value})} placeholder="e.g. Dr. Dawit Asmare" style={inputStyle}/></Field>
-            <Field label="Room Number"><input value={officeForm.room_number} onChange={e=>setOfficeForm({...officeForm,room_number:e.target.value})} placeholder="e.g. 312" style={inputStyle}/></Field>
-            <Field label="Building"><input value={officeForm.building} onChange={e=>setOfficeForm({...officeForm,building:e.target.value})} placeholder="e.g. Geology Block" style={inputStyle}/></Field>
-            <Field label="Phone"><input value={officeForm.phone} onChange={e=>setOfficeForm({...officeForm,phone:e.target.value})} placeholder="+251..." style={inputStyle}/></Field>
-            <Field label="Email"><input value={officeForm.email} onChange={e=>setOfficeForm({...officeForm,email:e.target.value})} placeholder="name@dmu.edu.et" style={inputStyle}/></Field>
-            <Field label="Office Hours"><input value={officeForm.office_hours} onChange={e=>setOfficeForm({...officeForm,office_hours:e.target.value})} placeholder="Mon–Fri, 9–12" style={inputStyle}/></Field>
-            <Field label="Office Photo"><input type="file" accept="image/*" onChange={e=>setOfficeForm({...officeForm,imageFile:e.target.files[0]})} style={inputStyle}/></Field>
-          </div>
-          <div style={{marginTop:'15px', display:'flex', gap:'10px'}}>
-            <button className="primary" onClick={submitOffice} disabled={busy} style={{background:'#28a745'}}>{busy?'Uploading...':'✅ Add Office'}</button>
-            <button className="secondary" onClick={()=>setShowForm(false)}>Cancel</button>
-          </div>
-        </div>
-      )}
-
-      {isStaff && showForm && tab === 'books' && (
-        <div style={formBoxStyle}>
-          <h3 style={formHeaderStyle}>📚 New Reference Book</h3>
-          <div style={gridStyle}>
-            <Field label="Title *"><input value={bookForm.title} onChange={e=>setBookForm({...bookForm,title:e.target.value})} placeholder="Book title" style={inputStyle}/></Field>
-            <Field label="Author(s)"><input value={bookForm.author} onChange={e=>setBookForm({...bookForm,author:e.target.value})} placeholder="Author(s)" style={inputStyle}/></Field>
-            <Field label="Edition"><input value={bookForm.edition} onChange={e=>setBookForm({...bookForm,edition:e.target.value})} placeholder="e.g. 3rd Edition" style={inputStyle}/></Field>
-            <Field label="Year"><input value={bookForm.year} onChange={e=>setBookForm({...bookForm,year:e.target.value})} placeholder="e.g. 2020" style={inputStyle}/></Field>
-            <Field label="Publisher"><input value={bookForm.publisher} onChange={e=>setBookForm({...bookForm,publisher:e.target.value})} placeholder="e.g. Wiley" style={inputStyle}/></Field>
-            <Field label="ISBN"><input value={bookForm.isbn} onChange={e=>setBookForm({...bookForm,isbn:e.target.value})} placeholder="ISBN" style={inputStyle}/></Field>
-            <Field label="Course Code"><input value={bookForm.course_code} onChange={e=>setBookForm({...bookForm,course_code:e.target.value})} placeholder="e.g. Geol 2011" style={inputStyle}/></Field>
-            <Field label="Category">
-              <select value={bookForm.category} onChange={e=>setBookForm({...bookForm,category:e.target.value})} style={inputStyle}>
-                <option>Reference</option><option>Textbook</option><option>Research</option>
-                <option>Manual</option><option>Atlas</option><option>Other</option>
-              </select>
-            </Field>
-            <Field label="Link / URL"><input value={bookForm.link} onChange={e=>setBookForm({...bookForm,link:e.target.value})} placeholder="https://..." style={inputStyle}/></Field>
-            <Field label="Cover Image"><input type="file" accept="image/*" onChange={e=>setBookForm({...bookForm,coverFile:e.target.files[0]})} style={inputStyle}/></Field>
-            <div style={{gridColumn:'span 2'}}>
-              <Field label="Description"><textarea value={bookForm.description} onChange={e=>setBookForm({...bookForm,description:e.target.value})} rows="3" placeholder="Notes about this book..." style={inputStyle}/></Field>
-            </div>
-          </div>
-          <div style={{marginTop:'15px', display:'flex', gap:'10px'}}>
-            <button className="primary" onClick={submitBook} disabled={busy} style={{background:'#28a745'}}>{busy?'Uploading...':'✅ Add Book'}</button>
-            <button className="secondary" onClick={()=>setShowForm(false)}>Cancel</button>
-          </div>
-        </div>
-      )}
-
-      {/* ============ LISTS ============ */}
-
-      {tab === 'labs' && (labs.length === 0 ? <Empty msg="No lab rooms added yet." isStaff={isStaff}/> : (
-        <div style={cardsGrid}>
-          {labs.map(lab => (
-            <Card key={lab.id}>
-              {lab.image_url ? <img src={lab.image_url} alt={lab.name} style={cardImageStyle}/> : <div style={imagePlaceholderStyle}>🔬</div>}
-              <div style={cardBodyStyle}>
-                <h3 style={cardTitleStyle}>{lab.name}</h3>
-                {lab.location && <p style={cardMetaStyle}>📍 {lab.location}</p>}
-                {lab.capacity && <p style={cardMetaStyle}>👥 {lab.capacity}</p>}
-                {lab.description && <p style={cardDescStyle}>{lab.description}</p>}
-                <p style={cardFooterStyle}>Added by {lab.uploaded_by}</p>
-                {isStaff && user.id === lab.user_id && (
-                  <button className="secondary" onClick={()=>delItem('lab_rooms', lab.id, setLabs)} style={{color:'#dc3545', marginTop:'8px', fontSize:'12px'}}>🗑️ Delete</button>
-                )}
-              </div>
-            </Card>
-          ))}
-        </div>
-      ))}
-
-      {tab === 'equipment' && (equipment.length === 0 ? <Empty msg="No lab equipment added yet." isStaff={isStaff}/> : (
-        <div style={cardsGrid}>
-          {equipment.map(eq => {
-            const cc = condColor(eq.condition);
-            return (
-              <Card key={eq.id}>
-                {eq.image_url ? <img src={eq.image_url} alt={eq.name} style={cardImageStyle}/> : <div style={imagePlaceholderStyle}>🧪</div>}
-                <div style={cardBodyStyle}>
-                  <div style={{display:'flex', gap:'6px', flexWrap:'wrap', marginBottom:'8px'}}>
-                    <span style={badgeStyle}>{eq.category}</span>
-                    <span style={{background: cc.bg, color: cc.fg, padding:'3px 10px', borderRadius:'12px', fontSize:'11px', fontWeight:'600'}}>
-                      {eq.condition}
-                    </span>
-                  </div>
-                  <h3 style={cardTitleStyle}>{eq.name}</h3>
-                  {eq.model && <p style={cardMetaStyle}>🔧 Model: {eq.model}</p>}
-                  {eq.serial_number && <p style={cardMetaStyle}>🔢 SN: {eq.serial_number}</p>}
-                  {eq.quantity > 1 && <p style={cardMetaStyle}>📦 Quantity: {eq.quantity}</p>}
-                  {eq.lab_name && <p style={cardMetaStyle}>📍 {eq.lab_name}</p>}
-                  {eq.specifications && (
-                    <p style={{...cardDescStyle, fontStyle:'italic', color:'#555'}}>
-                      <strong>Specs:</strong> {eq.specifications}
-                    </p>
-                  )}
-                  {eq.description && <p style={cardDescStyle}>{eq.description}</p>}
-                  <p style={cardFooterStyle}>Added by {eq.uploaded_by}</p>
-                  {isStaff && user.id === eq.user_id && (
-                    <button className="secondary" onClick={()=>delItem('lab_equipment', eq.id, setEquipment)} style={{color:'#dc3545', marginTop:'8px', fontSize:'12px'}}>🗑️ Delete</button>
-                  )}
+          {isStaff && showForm && (
+            <div style={formBoxStyle}>
+              <h3 style={formHeaderStyle}>🔬 New Lab Room</h3>
+              <div style={gridStyle}>
+                <Field label="Lab Name *">
+                  <input value={labForm.name} onChange={e => setLabForm({ ...labForm, name: e.target.value })}
+                    placeholder="e.g. Petrology Laboratory" style={inputStyle} />
+                </Field>
+                <Field label="Location">
+                  <input value={labForm.location} onChange={e => setLabForm({ ...labForm, location: e.target.value })}
+                    placeholder="e.g. Block 4, Room 201" style={inputStyle} />
+                </Field>
+                <Field label="Capacity">
+                  <input value={labForm.capacity} onChange={e => setLabForm({ ...labForm, capacity: e.target.value })}
+                    placeholder="e.g. 30 students" style={inputStyle} />
+                </Field>
+                <Field label="Photo *">
+                  <input type="file" accept="image/*"
+                    onChange={e => setLabForm({ ...labForm, imageFile: e.target.files[0] })} style={inputStyle} />
+                </Field>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <Field label="Description">
+                    <textarea value={labForm.description}
+                      onChange={e => setLabForm({ ...labForm, description: e.target.value })}
+                      rows="3" placeholder="Equipment, purpose, notes..." style={inputStyle} />
+                  </Field>
                 </div>
-              </Card>
-            );
-          })}
-        </div>
-      ))}
-
-      {tab === 'offices' && (offices.length === 0 ? <Empty msg="No staff offices added yet." isStaff={isStaff}/> : (
-        <div style={cardsGrid}>
-          {offices.map(o => (
-            <Card key={o.id}>
-              {o.image_url ? <img src={o.image_url} alt={o.staff_name} style={cardImageStyle}/> : <div style={imagePlaceholderStyle}>🏢</div>}
-              <div style={cardBodyStyle}>
-                <h3 style={cardTitleStyle}>{o.staff_name}</h3>
-                {o.room_number && <p style={cardMetaStyle}>🚪 Room {o.room_number}</p>}
-                {o.building && <p style={cardMetaStyle}>🏛️ {o.building}</p>}
-                {o.phone && <p style={cardMetaStyle}>📞 {o.phone}</p>}
-                {o.email && <p style={cardMetaStyle}>📧 {o.email}</p>}
-                {o.office_hours && <p style={cardMetaStyle}>🕐 {o.office_hours}</p>}
-                <p style={cardFooterStyle}>Added by {o.uploaded_by}</p>
-                {isStaff && user.id === o.user_id && (
-                  <button className="secondary" onClick={()=>delItem('staff_offices', o.id, setOffices)} style={{color:'#dc3545', marginTop:'8px', fontSize:'12px'}}>🗑️ Delete</button>
-                )}
               </div>
-            </Card>
-          ))}
-        </div>
-      ))}
-
-      {tab === 'books' && (books.length === 0 ? <Empty msg="No reference books added yet." isStaff={isStaff}/> : (
-        <div style={cardsGrid}>
-          {books.map(b => (
-            <Card key={b.id}>
-              {b.cover_url ? (
-                <img src={b.cover_url} alt={b.title} style={{...cardImageStyle, objectFit:'contain', background:'#f8f9fa'}}/>
-              ) : <div style={imagePlaceholderStyle}>📚</div>}
-              <div style={cardBodyStyle}>
-                <span style={badgeStyle}>{b.category}</span>
-                <h3 style={{...cardTitleStyle, marginTop:'8px'}}>{b.title}</h3>
-                {b.author && <p style={cardMetaStyle}>✍️ {b.author}</p>}
-                {b.edition && <p style={cardMetaStyle}>📖 {b.edition}</p>}
-                {b.year && <p style={cardMetaStyle}>🗓️ {b.year}</p>}
-                {b.publisher && <p style={cardMetaStyle}>🏢 {b.publisher}</p>}
-                {b.course_code && <p style={cardMetaStyle}>📘 {b.course_code}</p>}
-                {b.description && <p style={cardDescStyle}>{b.description}</p>}
-                {b.link && (<a href={b.link} target="_blank" rel="noreferrer" style={linkStyle}>🔗 Open Link</a>)}
-                <p style={cardFooterStyle}>Added by {b.uploaded_by}</p>
-                {isStaff && user.id === b.user_id && (
-                  <button className="secondary" onClick={()=>delItem('reference_books', b.id, setBooks)} style={{color:'#dc3545', marginTop:'8px', fontSize:'12px'}}>🗑️ Delete</button>
-                )}
+              <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
+                <button className="primary" onClick={submitLab} disabled={busy} style={{ background: '#28a745' }}>
+                  {busy ? 'Uploading...' : '✅ Add Lab'}
+                </button>
+                <button className="secondary" onClick={() => setShowForm(false)}>Cancel</button>
               </div>
-            </Card>
-          ))}
-        </div>
-      ))}
+            </div>
+          )}
+
+          {labs.length === 0 ? <Empty msg="No lab rooms added yet." isStaff={isStaff} /> : (
+            <div style={cardsGrid}>
+              {labs.map(lab => (
+                <Card key={lab.id}>
+                  {lab.image_url ? <img src={lab.image_url} alt={lab.name} style={cardImageStyle} /> : <div style={imagePlaceholderStyle}>🔬</div>}
+                  <div style={cardBodyStyle}>
+                    <h3 style={cardTitleStyle}>{lab.name}</h3>
+                    {lab.location && <p style={cardMetaStyle}>📍 {lab.location}</p>}
+                    {lab.capacity && <p style={cardMetaStyle}>👥 {lab.capacity}</p>}
+                    {lab.description && <p style={cardDescStyle}>{lab.description}</p>}
+                    <p style={cardFooterStyle}>Added by {lab.uploaded_by}</p>
+                    {isStaff && user.id === lab.user_id && (
+                      <button className="secondary" onClick={() => delItem('lab_rooms', lab.id, setLabs)}
+                        style={{ color: '#dc3545', marginTop: '8px', fontSize: '12px' }}>🗑️ Delete</button>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ================================================== */}
+      {/* ============== LAB EQUIPMENT TAB ================= */}
+      {/* ================================================== */}
+      {tab === 'equipment' && (
+        <>
+          {isStaff && (
+            <div style={{ marginBottom: '20px' }}>
+              <AddBtn label="📝 Add Equipment" />
+            </div>
+          )}
+
+          {isStaff && showForm && (
+            <div style={formBoxStyle}>
+              <h3 style={formHeaderStyle}>🧪 New Lab Equipment</h3>
+              <div style={gridStyle}>
+                <Field label="Equipment Name *">
+                  <input value={equipForm.name} onChange={e => setEquipForm({ ...equipForm, name: e.target.value })}
+                    placeholder="e.g. Polarizing Microscope" style={inputStyle} />
+                </Field>
+                <Field label="Category">
+                  <select value={equipForm.category}
+                    onChange={e => setEquipForm({ ...equipForm, category: e.target.value })}
+                    style={inputStyle}>
+                    <option>Microscope</option>
+                    <option>Rock Cutting Saw</option>
+                    <option>Sieve Set</option>
+                    <option>GPS Receiver</option>
+                    <option>Compass-Clinometer</option>
+                    <option>Hammer & Chisel</option>
+                    <option>Hand Lens</option>
+                    <option>Spectrometer</option>
+                    <option>XRF Analyzer</option>
+                    <option>Oven / Furnace</option>
+                    <option>Balance / Scale</option>
+                    <option>Sample Splitter</option>
+                    <option>Thin Sectioning Kit</option>
+                    <option>Other</option>
+                  </select>
+                </Field>
+
+                {equipForm.category === 'Other' && (
+                  <Field label="Enter New Category Name *">
+                    <input value={equipForm.custom_category}
+                      onChange={e => setEquipForm({ ...equipForm, custom_category: e.target.value })}
+                      placeholder="e.g. Seismic Sensor, Core Scanner..."
+                      style={inputStyle} />
+                    <p style={{ fontSize: '11px', color: '#66788a', marginTop: '4px' }}>
+                      Since you chose "Other", please type the category name.
+                    </p>
+                  </Field>
+                )}
+
+                <Field label="Model">
+                  <input value={equipForm.model} onChange={e => setEquipForm({ ...equipForm, model: e.target.value })}
+                    placeholder="e.g. Nikon Eclipse LV100" style={inputStyle} />
+                </Field>
+                <Field label="Serial Number">
+                  <input value={equipForm.serial_number}
+                    onChange={e => setEquipForm({ ...equipForm, serial_number: e.target.value })}
+                    placeholder="e.g. SN-2023-0451" style={inputStyle} />
+                </Field>
+                <Field label="Quantity">
+                  <input type="number" value={equipForm.quantity} min="1"
+                    onChange={e => setEquipForm({ ...equipForm, quantity: e.target.value })} style={inputStyle} />
+                </Field>
+                <Field label="Condition">
+                  <select value={equipForm.condition}
+                    onChange={e => setEquipForm({ ...equipForm, condition: e.target.value })}
+                    style={inputStyle}>
+                    <option>Working</option>
+                    <option>Needs Repair</option>
+                    <option>Under Service</option>
+                    <option>Retired</option>
+                  </select>
+                </Field>
+                <Field label="Located in Lab">
+                  <input value={equipForm.lab_name}
+                    onChange={e => setEquipForm({ ...equipForm, lab_name: e.target.value })}
+                    placeholder="e.g. Petrology Laboratory" style={inputStyle} />
+                </Field>
+                <Field label="Photo *">
+                  <input type="file" accept="image/*"
+                    onChange={e => setEquipForm({ ...equipForm, imageFile: e.target.files[0] })} style={inputStyle} />
+                </Field>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <Field label="Specifications">
+                    <textarea value={equipForm.specifications}
+                      onChange={e => setEquipForm({ ...equipForm, specifications: e.target.value })}
+                      rows="2" placeholder="Technical specs, capacity, resolution..." style={inputStyle} />
+                  </Field>
+                </div>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <Field label="Description / Usage">
+                    <textarea value={equipForm.description}
+                      onChange={e => setEquipForm({ ...equipForm, description: e.target.value })}
+                      rows="3" placeholder="What is this equipment used for? Who can access it?" style={inputStyle} />
+                  </Field>
+                </div>
+              </div>
+              <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
+                <button className="primary" onClick={submitEquip} disabled={busy} style={{ background: '#28a745' }}>
+                  {busy ? 'Uploading...' : '✅ Add Equipment'}
+                </button>
+                <button className="secondary" onClick={() => setShowForm(false)}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {equipment.length === 0 ? <Empty msg="No lab equipment added yet." isStaff={isStaff} /> : (
+            <div style={cardsGrid}>
+              {equipment.map(eq => {
+                const cc = condColor(eq.condition);
+                return (
+                  <Card key={eq.id}>
+                    {eq.image_url ? <img src={eq.image_url} alt={eq.name} style={cardImageStyle} /> : <div style={imagePlaceholderStyle}>🧪</div>}
+                    <div style={cardBodyStyle}>
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                        <span style={badgeStyle}>{eq.category}</span>
+                        <span style={{ background: cc.bg, color: cc.fg, padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '600' }}>
+                          {eq.condition}
+                        </span>
+                      </div>
+                      <h3 style={cardTitleStyle}>{eq.name}</h3>
+                      {eq.model && <p style={cardMetaStyle}>🔧 Model: {eq.model}</p>}
+                      {eq.serial_number && <p style={cardMetaStyle}>🔢 SN: {eq.serial_number}</p>}
+                      {eq.quantity > 1 && <p style={cardMetaStyle}>📦 Quantity: {eq.quantity}</p>}
+                      {eq.lab_name && <p style={cardMetaStyle}>📍 {eq.lab_name}</p>}
+                      {eq.specifications && (
+                        <p style={{ ...cardDescStyle, fontStyle: 'italic', color: '#555' }}>
+                          <strong>Specs:</strong> {eq.specifications}
+                        </p>
+                      )}
+                      {eq.description && <p style={cardDescStyle}>{eq.description}</p>}
+                      <p style={cardFooterStyle}>Added by {eq.uploaded_by}</p>
+                      {isStaff && user.id === eq.user_id && (
+                        <button className="secondary" onClick={() => delItem('lab_equipment', eq.id, setEquipment)}
+                          style={{ color: '#dc3545', marginTop: '8px', fontSize: '12px' }}>🗑️ Delete</button>
+                      )}
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ================================================== */}
+      {/* ============== STAFF OFFICES TAB ================= */}
+      {/* ================================================== */}
+      {tab === 'offices' && (
+        <>
+          {isStaff && (
+            <div style={{ marginBottom: '20px' }}>
+              <AddBtn label="📝 Add Office" />
+            </div>
+          )}
+
+          {isStaff && showForm && (
+            <div style={formBoxStyle}>
+              <h3 style={formHeaderStyle}>🏢 New Staff Office</h3>
+              <div style={gridStyle}>
+                <Field label="Staff Name *">
+                  <input value={officeForm.staff_name}
+                    onChange={e => setOfficeForm({ ...officeForm, staff_name: e.target.value })}
+                    placeholder="e.g. Dr. Dawit Asmare" style={inputStyle} />
+                </Field>
+                <Field label="Room Number">
+                  <input value={officeForm.room_number}
+                    onChange={e => setOfficeForm({ ...officeForm, room_number: e.target.value })}
+                    placeholder="e.g. 312" style={inputStyle} />
+                </Field>
+                <Field label="Building">
+                  <input value={officeForm.building}
+                    onChange={e => setOfficeForm({ ...officeForm, building: e.target.value })}
+                    placeholder="e.g. Geology Block" style={inputStyle} />
+                </Field>
+                <Field label="Phone">
+                  <input value={officeForm.phone}
+                    onChange={e => setOfficeForm({ ...officeForm, phone: e.target.value })}
+                    placeholder="+251..." style={inputStyle} />
+                </Field>
+                <Field label="Email">
+                  <input value={officeForm.email}
+                    onChange={e => setOfficeForm({ ...officeForm, email: e.target.value })}
+                    placeholder="name@dmu.edu.et" style={inputStyle} />
+                </Field>
+                <Field label="Office Hours">
+                  <input value={officeForm.office_hours}
+                    onChange={e => setOfficeForm({ ...officeForm, office_hours: e.target.value })}
+                    placeholder="Mon–Fri, 9–12" style={inputStyle} />
+                </Field>
+                <Field label="Office Photo">
+                  <input type="file" accept="image/*"
+                    onChange={e => setOfficeForm({ ...officeForm, imageFile: e.target.files[0] })} style={inputStyle} />
+                </Field>
+              </div>
+              <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
+                <button className="primary" onClick={submitOffice} disabled={busy} style={{ background: '#28a745' }}>
+                  {busy ? 'Uploading...' : '✅ Add Office'}
+                </button>
+                <button className="secondary" onClick={() => setShowForm(false)}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {offices.length === 0 ? <Empty msg="No staff offices added yet." isStaff={isStaff} /> : (
+            <div style={cardsGrid}>
+              {offices.map(o => (
+                <Card key={o.id}>
+                  {o.image_url ? <img src={o.image_url} alt={o.staff_name} style={cardImageStyle} /> : <div style={imagePlaceholderStyle}>🏢</div>}
+                  <div style={cardBodyStyle}>
+                    <h3 style={cardTitleStyle}>{o.staff_name}</h3>
+                    {o.room_number && <p style={cardMetaStyle}>🚪 Room {o.room_number}</p>}
+                    {o.building && <p style={cardMetaStyle}>🏛️ {o.building}</p>}
+                    {o.phone && <p style={cardMetaStyle}>📞 {o.phone}</p>}
+                    {o.email && <p style={cardMetaStyle}>📧 {o.email}</p>}
+                    {o.office_hours && <p style={cardMetaStyle}>🕐 {o.office_hours}</p>}
+                    <p style={cardFooterStyle}>Added by {o.uploaded_by}</p>
+                    {isStaff && user.id === o.user_id && (
+                      <button className="secondary" onClick={() => delItem('staff_offices', o.id, setOffices)}
+                        style={{ color: '#dc3545', marginTop: '8px', fontSize: '12px' }}>🗑️ Delete</button>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ================================================== */}
+      {/* ============ REFERENCE BOOKS TAB ================= */}
+      {/* ================================================== */}
+      {tab === 'books' && (
+        <>
+          {isStaff && (
+            <div style={{ marginBottom: '20px' }}>
+              <AddBtn label="📝 Add Reference Book" />
+            </div>
+          )}
+
+          {isStaff && showForm && (
+            <div style={formBoxStyle}>
+              <h3 style={formHeaderStyle}>📚 New Reference Book</h3>
+              <div style={gridStyle}>
+                <Field label="Title *">
+                  <input value={bookForm.title}
+                    onChange={e => setBookForm({ ...bookForm, title: e.target.value })}
+                    placeholder="Book title" style={inputStyle} />
+                </Field>
+                <Field label="Author(s)">
+                  <input value={bookForm.author}
+                    onChange={e => setBookForm({ ...bookForm, author: e.target.value })}
+                    placeholder="Author(s)" style={inputStyle} />
+                </Field>
+                <Field label="Edition">
+                  <input value={bookForm.edition}
+                    onChange={e => setBookForm({ ...bookForm, edition: e.target.value })}
+                    placeholder="e.g. 3rd Edition" style={inputStyle} />
+                </Field>
+                <Field label="Year">
+                  <input value={bookForm.year}
+                    onChange={e => setBookForm({ ...bookForm, year: e.target.value })}
+                    placeholder="e.g. 2020" style={inputStyle} />
+                </Field>
+                <Field label="Publisher">
+                  <input value={bookForm.publisher}
+                    onChange={e => setBookForm({ ...bookForm, publisher: e.target.value })}
+                    placeholder="e.g. Wiley" style={inputStyle} />
+                </Field>
+                <Field label="ISBN">
+                  <input value={bookForm.isbn}
+                    onChange={e => setBookForm({ ...bookForm, isbn: e.target.value })}
+                    placeholder="ISBN" style={inputStyle} />
+                </Field>
+                <Field label="Course Code">
+                  <input value={bookForm.course_code}
+                    onChange={e => setBookForm({ ...bookForm, course_code: e.target.value })}
+                    placeholder="e.g. Geol 2011" style={inputStyle} />
+                </Field>
+                <Field label="Category">
+                  <select value={bookForm.category}
+                    onChange={e => setBookForm({ ...bookForm, category: e.target.value })}
+                    style={inputStyle}>
+                    <option>Reference</option>
+                    <option>Textbook</option>
+                    <option>Research</option>
+                    <option>Manual</option>
+                    <option>Atlas</option>
+                    <option>Other</option>
+                  </select>
+                </Field>
+                <Field label="Link / URL">
+                  <input value={bookForm.link}
+                    onChange={e => setBookForm({ ...bookForm, link: e.target.value })}
+                    placeholder="https://..." style={inputStyle} />
+                </Field>
+                <Field label="Cover Image">
+                  <input type="file" accept="image/*"
+                    onChange={e => setBookForm({ ...bookForm, coverFile: e.target.files[0] })} style={inputStyle} />
+                </Field>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <Field label="Description">
+                    <textarea value={bookForm.description}
+                      onChange={e => setBookForm({ ...bookForm, description: e.target.value })}
+                      rows="3" placeholder="Notes about this book..." style={inputStyle} />
+                  </Field>
+                </div>
+              </div>
+              <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
+                <button className="primary" onClick={submitBook} disabled={busy} style={{ background: '#28a745' }}>
+                  {busy ? 'Uploading...' : '✅ Add Book'}
+                </button>
+                <button className="secondary" onClick={() => setShowForm(false)}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {books.length === 0 ? <Empty msg="No reference books added yet." isStaff={isStaff} /> : (
+            <div style={cardsGrid}>
+              {books.map(b => (
+                <Card key={b.id}>
+                  {b.cover_url ? (
+                    <img src={b.cover_url} alt={b.title} style={{ ...cardImageStyle, objectFit: 'contain', background: '#f8f9fa' }} />
+                  ) : <div style={imagePlaceholderStyle}>📚</div>}
+                  <div style={cardBodyStyle}>
+                    <span style={badgeStyle}>{b.category}</span>
+                    <h3 style={{ ...cardTitleStyle, marginTop: '8px' }}>{b.title}</h3>
+                    {b.author && <p style={cardMetaStyle}>✍️ {b.author}</p>}
+                    {b.edition && <p style={cardMetaStyle}>📖 {b.edition}</p>}
+                    {b.year && <p style={cardMetaStyle}>🗓️ {b.year}</p>}
+                    {b.publisher && <p style={cardMetaStyle}>🏢 {b.publisher}</p>}
+                    {b.course_code && <p style={cardMetaStyle}>📘 {b.course_code}</p>}
+                    {b.description && <p style={cardDescStyle}>{b.description}</p>}
+                    {b.link && (<a href={b.link} target="_blank" rel="noreferrer" style={linkStyle}>🔗 Open Link</a>)}
+                    <p style={cardFooterStyle}>Added by {b.uploaded_by}</p>
+                    {isStaff && user.id === b.user_id && (
+                      <button className="secondary" onClick={() => delItem('reference_books', b.id, setBooks)}
+                        style={{ color: '#dc3545', marginTop: '8px', fontSize: '12px' }}>🗑️ Delete</button>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ================================================== */}
+      {/* =================== MAPS TAB ===================== */}
+      {/* ================================================== */}
+      {tab === 'maps' && (
+        <>
+          {isStaff && (
+            <div style={{ marginBottom: '20px' }}>
+              <AddBtn label="📝 Add Map" />
+            </div>
+          )}
+
+          {isStaff && showForm && (
+            <div style={formBoxStyle}>
+              <h3 style={formHeaderStyle}>🗺️ New Map</h3>
+              <div style={gridStyle}>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <Field label="Map Title *">
+                    <input value={mapForm.title}
+                      onChange={e => setMapForm({ ...mapForm, title: e.target.value })}
+                      placeholder="e.g. Geological Map of Ethiopia (1:2,000,000)" style={inputStyle} />
+                  </Field>
+                </div>
+                <Field label="Map Type">
+                  <select value={mapForm.map_type}
+                    onChange={e => setMapForm({ ...mapForm, map_type: e.target.value })}
+                    style={inputStyle}>
+                    <option>Geological Map</option>
+                    <option>Topographic Map</option>
+                    <option>Structural Map</option>
+                    <option>Mineral Resources Map</option>
+                    <option>Hydrogeological Map</option>
+                    <option>Soil Map</option>
+                    <option>Tectonic Map</option>
+                    <option>Land Use Map</option>
+                    <option>Other</option>
+                  </select>
+                </Field>
+                <Field label="Scale">
+                  <input value={mapForm.scale}
+                    onChange={e => setMapForm({ ...mapForm, scale: e.target.value })}
+                    placeholder="e.g. 1:50,000" style={inputStyle} />
+                </Field>
+                <Field label="Region / Area">
+                  <input value={mapForm.region}
+                    onChange={e => setMapForm({ ...mapForm, region: e.target.value })}
+                    placeholder="e.g. Blue Nile Basin" style={inputStyle} />
+                </Field>
+                <Field label="Year">
+                  <input value={mapForm.year}
+                    onChange={e => setMapForm({ ...mapForm, year: e.target.value })}
+                    placeholder="e.g. 2020" style={inputStyle} />
+                </Field>
+                <Field label="Publisher / Source">
+                  <input value={mapForm.publisher}
+                    onChange={e => setMapForm({ ...mapForm, publisher: e.target.value })}
+                    placeholder="e.g. Geological Survey of Ethiopia" style={inputStyle} />
+                </Field>
+                <Field label="Preview Image">
+                  <input type="file" accept="image/*"
+                    onChange={e => setMapForm({ ...mapForm, imageFile: e.target.files[0] })} style={inputStyle} />
+                </Field>
+                <Field label="Map File (PDF / Image)">
+                  <input type="file" accept=".pdf,image/*"
+                    onChange={e => setMapForm({ ...mapForm, file: e.target.files[0] })} style={inputStyle} />
+                </Field>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <Field label="Description">
+                    <textarea value={mapForm.description}
+                      onChange={e => setMapForm({ ...mapForm, description: e.target.value })}
+                      rows="3" placeholder="Notes about this map..." style={inputStyle} />
+                  </Field>
+                </div>
+              </div>
+              <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
+                <button className="primary" onClick={submitMap} disabled={busy} style={{ background: '#28a745' }}>
+                  {busy ? 'Uploading...' : '✅ Add Map'}
+                </button>
+                <button className="secondary" onClick={() => setShowForm(false)}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {maps.length === 0 ? <Empty msg="No maps added yet." isStaff={isStaff} /> : (
+            <div style={cardsGrid}>
+              {maps.map(m => (
+                <Card key={m.id}>
+                  {m.image_url ? (
+                    <img src={m.image_url} alt={m.title} style={{ ...cardImageStyle, objectFit: 'contain', background: '#f8f9fa' }} />
+                  ) : (
+                    <div style={imagePlaceholderStyle}>🗺️</div>
+                  )}
+                  <div style={cardBodyStyle}>
+                    <span style={badgeStyle}>{m.map_type}</span>
+                    <h3 style={{ ...cardTitleStyle, marginTop: '8px' }}>{m.title}</h3>
+                    {m.scale && <p style={cardMetaStyle}>📐 Scale: {m.scale}</p>}
+                    {m.region && <p style={cardMetaStyle}>📍 {m.region}</p>}
+                    {m.year && <p style={cardMetaStyle}>🗓️ {m.year}</p>}
+                    {m.publisher && <p style={cardMetaStyle}>🏛️ {m.publisher}</p>}
+                    {m.description && <p style={cardDescStyle}>{m.description}</p>}
+                    {m.file_url && (
+                      <a href={m.file_url} target="_blank" rel="noreferrer" style={linkStyle}>
+                        📥 Open / Download Map
+                      </a>
+                    )}
+                    <p style={cardFooterStyle}>Added by {m.uploaded_by}</p>
+                    {isStaff && user.id === m.user_id && (
+                      <button className="secondary" onClick={() => delItem('maps', m.id, setMaps)}
+                        style={{ color: '#dc3545', marginTop: '8px', fontSize: '12px' }}>🗑️ Delete</button>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
+      )}
 
     </Page>
   );
 }
 
-// Reuse the same helpers from the previous version (Field, Card, Empty + styles)
+// ============================================
+// Shared helpers + styles
+// ============================================
 function Field({ label, children }) {
   return (
     <div>
-      <label style={{ display:'block', fontWeight:'600', marginBottom:'5px', fontSize:'13px', color:'#102a43' }}>{label}</label>
+      <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px', fontSize: '13px', color: '#102a43' }}>{label}</label>
       {children}
     </div>
   );
 }
 function Card({ children }) {
-  return <article style={{
-    background:'white', border:'1px solid #dbe4ec',
-    borderRadius:'12px', overflow:'hidden',
-    boxShadow:'0 1px 3px rgba(0,0,0,0.04)',
-    display:'flex', flexDirection:'column'
-  }}>{children}</article>;
+  return (
+    <article style={{
+      background: 'white', border: '1px solid #dbe4ec',
+      borderRadius: '12px', overflow: 'hidden',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+      display: 'flex', flexDirection: 'column'
+    }}>{children}</article>
+  );
 }
 function Empty({ msg, isStaff }) {
   return (
-    <div style={{ textAlign:'center', padding:'50px 20px', background:'#f8f9fa', borderRadius:'12px' }}>
-      <h3 style={{ color:'#102a43', margin:'0 0 8px' }}>{msg}</h3>
-      <p style={{ color:'#66788a', margin:0 }}>
-        {isStaff ? 'Click "Add" above to upload.' : 'Check back later.'}
+    <div style={{ textAlign: 'center', padding: '50px 20px', background: '#f8f9fa', borderRadius: '12px' }}>
+      <h3 style={{ color: '#102a43', margin: '0 0 8px' }}>{msg}</h3>
+      <p style={{ color: '#66788a', margin: 0 }}>
+        {isStaff ? 'Click the green "Add" button above to upload.' : 'Check back later.'}
       </p>
     </div>
   );
 }
-const formBoxStyle = { background:'#f8f9fa', padding:'20px', borderRadius:'12px', marginBottom:'25px', border:'1px solid #dbe4ec' };
-const formHeaderStyle = { color:'#102a43', marginTop:0, marginBottom:'15px' };
-const gridStyle = { display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px' };
-const inputStyle = { width:'100%', padding:'10px', borderRadius:'6px', border:'1px solid #ccc' };
-const cardsGrid = { display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(300px, 1fr))', gap:'20px' };
-const cardImageStyle = { width:'100%', height:'200px', objectFit:'cover' };
-const imagePlaceholderStyle = { width:'100%', height:'200px', background:'linear-gradient(135deg, #1a3a5c, #1769aa)', display:'grid', placeItems:'center', color:'white', fontSize:'48px' };
-const cardBodyStyle = { padding:'18px', display:'flex', flexDirection:'column', flex:1 };
-const cardTitleStyle = { margin:'4px 0 8px', color:'#102a43', fontSize:'17px' };
-const cardMetaStyle = { margin:'3px 0', color:'#66788a', fontSize:'13px' };
-const cardDescStyle = { margin:'10px 0', color:'#444', fontSize:'14px', lineHeight:'1.5' };
-const cardFooterStyle = { margin:'auto 0 0', paddingTop:'10px', fontSize:'11px', color:'#999' };
-const badgeStyle = { background:'#1769aa', color:'white', padding:'3px 10px', borderRadius:'12px', fontSize:'11px', fontWeight:'600', alignSelf:'flex-start' };
-const linkStyle = { display:'inline-block', marginTop:'10px', padding:'6px 14px', background:'#1769aa', color:'white', borderRadius:'6px', textDecoration:'none', fontSize:'13px' };
+const formBoxStyle = { background: '#f8f9fa', padding: '20px', borderRadius: '12px', marginBottom: '25px', border: '1px solid #dbe4ec' };
+const formHeaderStyle = { color: '#102a43', marginTop: 0, marginBottom: '15px' };
+const gridStyle = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' };
+const inputStyle = { width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' };
+const cardsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' };
+const cardImageStyle = { width: '100%', height: '200px', objectFit: 'cover' };
+const imagePlaceholderStyle = { width: '100%', height: '200px', background: 'linear-gradient(135deg, #1a3a5c, #1769aa)', display: 'grid', placeItems: 'center', color: 'white', fontSize: '48px' };
+const cardBodyStyle = { padding: '18px', display: 'flex', flexDirection: 'column', flex: 1 };
+const cardTitleStyle = { margin: '4px 0 8px', color: '#102a43', fontSize: '17px' };
+const cardMetaStyle = { margin: '3px 0', color: '#66788a', fontSize: '13px' };
+const cardDescStyle = { margin: '10px 0', color: '#444', fontSize: '14px', lineHeight: '1.5' };
+const cardFooterStyle = { margin: 'auto 0 0', paddingTop: '10px', fontSize: '11px', color: '#999' };
+const badgeStyle = { background: '#1769aa', color: 'white', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '600', alignSelf: 'flex-start' };
+const linkStyle = { display: 'inline-block', marginTop: '10px', padding: '6px 14px', background: '#1769aa', color: 'white', borderRadius: '6px', textDecoration: 'none', fontSize: '13px' };
 function Contact(){return <Page title="Contact" kicker="GET IN TOUCH"><div><h2>Department of Geology</h2><p>Debre Markos University, Ethiopia</p></div></Page>}
 
 function Academics({ navigate, user, meta }) {
