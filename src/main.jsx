@@ -180,6 +180,7 @@ function App(){
   const [selectedCourse,setSelectedCourse]=useState(null);
   const [search,setSearch]=useState("");
   const [yearFilter,setYearFilter]=useState("all");
+  const [semesterFilter,setSemesterFilter]=useState("all");
   const [activeFilter,setActiveFilter]=useState("all");
   const [loginOpen,setLoginOpen]=useState(false);
   const [materials, setMaterials] = useState({});
@@ -225,7 +226,6 @@ function App(){
     }
   })(); }, []);
 
-  // Only set mustChangePassword ONCE per login — never re-lock mid-typing
   useEffect(() => {
     if (!meta) {
       setMustChangePassword(false);
@@ -289,19 +289,14 @@ function App(){
 
   const markPasswordChanged = async () => {
     if (!user) return;
-
-    // Write the flag to the DB first — do not release the gate on error
     const { error } = await supabase
       .from('user_metadata')
       .update({ password_changed: true })
       .eq('id', user.id);
-
     if (error) {
       alert('Could not mark password as changed: ' + error.message);
       return;
     }
-
-    // Now safe to release
     setMeta(m => m ? { ...m, password_changed: true } : m);
     setMustChangePassword(false);
   };
@@ -311,8 +306,9 @@ function App(){
     const q = search.toLowerCase();
     return (!q || `${c.code} ${c.title} ${c.instructor}`.toLowerCase().includes(q))
       && (yearFilter === "all" || c.year === Number(yearFilter))
+      && (semesterFilter === "all" || c.semester === semesterFilter)
       && (activeFilter === "all" || (activeFilter === "active" ? c.active : !c.active));
-  }), [courses, search, yearFilter, activeFilter]);
+  }), [courses, search, yearFilter, semesterFilter, activeFilter]);
 
   const navigate = (p) => { setPage(p); setMobile(false); window.scrollTo(0, 0); };
 
@@ -451,7 +447,7 @@ function App(){
       {page==="homepage" && <Homepage navigate={navigate} activeCourses={activeCourses.length} students={42}/>}
       {page==="about" && <About user={user} meta={meta}/>}
       {page==="academics" && <Academics navigate={navigate} user={user} meta={meta}/>}
-      {page==="courses" && <CoursesPage courses={filteredCourses} search={search} setSearch={setSearch} yearFilter={yearFilter} setYearFilter={setYearFilter} activeFilter={activeFilter} setActiveFilter={setActiveFilter} setSelectedCourse={setSelectedCourse} meta={meta}/>}
+      {page==="courses" && <CoursesPage courses={filteredCourses} search={search} setSearch={setSearch} yearFilter={yearFilter} setYearFilter={setYearFilter} semesterFilter={semesterFilter} setSemesterFilter={setSemesterFilter} activeFilter={activeFilter} setActiveFilter={setActiveFilter} setSelectedCourse={setSelectedCourse} meta={meta}/>}
       {page==="staff" && <Staff profilePic={profilePic} saveProfilePic={saveProfilePic} removeProfilePic={removeProfilePic} user={user} meta={meta}/>}
       {page==="research" && <Research publications={publications} setPublications={setPublications} user={user} meta={meta}/>}
       {page==="news" && <News newsItems={newsItems} setNewsItems={setNewsItems} user={user} meta={meta}/>}
@@ -707,16 +703,7 @@ function About({ user, meta }) {
 
       <SectionTitle kicker="DEPARTMENT OVERVIEW" title="Geology at Debre Markos University" />
 
-      <div className="twoCol">
-        <article>
-          <h3>Overview</h3>
-          <p>The Department of Geology prepares graduates with strong geological knowledge.</p>
-        </article>
-        <article className="infoBox">
-          <h3>Vision</h3>
-          <p>To become a leading center of geological education.</p>
-        </article>
-      </div>
+      <AboutSections isStaff={isStaff} user={user} meta={meta} />
 
       <div style={{ marginTop: '40px' }}>
         <div style={{
@@ -802,6 +789,156 @@ function About({ user, meta }) {
       </div>
 
     </Page>
+  );
+}
+
+function AboutSections({ isStaff, user, meta }) {
+  const [sections, setSections] = useState({
+    mission: { title: 'Mission', content: '' },
+    vision:  { title: 'Vision',  content: '' },
+    goal:    { title: 'Goal',    content: '' }
+  });
+  const [editKey, setEditKey] = useState(null);
+  const [draft, setDraft] = useState({ title: '', content: '' });
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('about_sections').select('*');
+      if (data) {
+        setSections(prev => {
+          const next = { ...prev };
+          data.forEach(row => {
+            next[row.section_key] = {
+              title: row.title || '',
+              content: row.content || ''
+            };
+          });
+          return next;
+        });
+      }
+    })();
+  }, []);
+
+  const startEdit = (key) => {
+    setEditKey(key);
+    setDraft({
+      title: sections[key].title,
+      content: sections[key].content
+    });
+  };
+
+  const cancelEdit = () => { setEditKey(null); setDraft({ title: '', content: '' }); };
+
+  const saveEdit = async () => {
+    if (!draft.title.trim()) return alert('Please enter a title.');
+    setBusy(true);
+
+    const { error } = await supabase
+      .from('about_sections')
+      .upsert(
+        {
+          section_key: editKey,
+          title: draft.title.trim(),
+          content: draft.content.trim(),
+          updated_by: meta?.name
+        },
+        { onConflict: 'section_key' }
+      );
+
+    setBusy(false);
+    if (error) return alert(error.message);
+
+    setSections(prev => ({
+      ...prev,
+      [editKey]: {
+        title: draft.title.trim(),
+        content: draft.content.trim()
+      }
+    }));
+    cancelEdit();
+    alert('✅ Saved!');
+  };
+
+  const renderCard = (key) => {
+    const s = sections[key];
+    const isEditing = editKey === key;
+
+    return (
+      <article className="infoBox" key={key} style={{ position: 'relative' }}>
+        {isEditing ? (
+          <>
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px', fontSize: '13px' }}>
+                Section Title
+              </label>
+              <input
+                type="text"
+                value={draft.title}
+                onChange={e => setDraft({ ...draft, title: e.target.value })}
+                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
+              />
+            </div>
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px', fontSize: '13px' }}>
+                Content
+              </label>
+              <textarea
+                rows="6"
+                value={draft.content}
+                onChange={e => setDraft({ ...draft, content: e.target.value })}
+                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', fontFamily: 'inherit' }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button className="primary" onClick={saveEdit} disabled={busy} style={{ background: '#28a745' }}>
+                {busy ? 'Saving...' : '✅ Save'}
+              </button>
+              <button className="secondary" onClick={cancelEdit}>Cancel</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h3 style={{ margin: '0 0 8px' }}>{s.title}</h3>
+            <p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: '1.7' }}>{s.content}</p>
+            {isStaff && (
+              <button
+                onClick={() => startEdit(key)}
+                style={{
+                  marginTop: '12px',
+                  background: 'white',
+                  border: '1px solid #1769aa',
+                  color: '#1769aa',
+                  padding: '6px 14px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: '600'
+                }}
+              >
+                ✏️ Edit
+              </button>
+            )}
+          </>
+        )}
+      </article>
+    );
+  };
+
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+        gap: '20px',
+        marginTop: '20px',
+        marginBottom: '30px'
+      }}
+    >
+      {renderCard('mission')}
+      {renderCard('vision')}
+      {renderCard('goal')}
+    </div>
   );
 }
 
@@ -2151,14 +2288,32 @@ function Academics({ navigate, user, meta }) {
   );
 }
 
-function CoursesPage({ courses, search, setSearch, yearFilter, setYearFilter, activeFilter, setActiveFilter, setSelectedCourse, meta }) {
+function CoursesPage({ courses, search, setSearch, yearFilter, setYearFilter, semesterFilter, setSemesterFilter, activeFilter, setActiveFilter, setSelectedCourse, meta }) {
   const [expanded, setExpanded] = useState(null);
   return (
     <Page title="Course Catalog" kicker="EXPLORE OUR COURSES">
       <div className="toolbar">
-        <div className="search"><Search/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..."/></div>
-        <select value={yearFilter} onChange={e => setYearFilter(e.target.value)}><option value="all">All Years</option>{YEARS.map(y => <option key={y} value={y}>Year {y}</option>)}</select>
-        <select value={activeFilter} onChange={e => setActiveFilter(e.target.value)}><option value="all">All</option><option value="active">Active</option><option value="inactive">Inactive</option></select>
+        <div className="search">
+          <Search/>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..."/>
+        </div>
+
+        <select value={yearFilter} onChange={e => setYearFilter(e.target.value)}>
+          <option value="all">All Years</option>
+          {YEARS.map(y => <option key={y} value={y}>Year {y}</option>)}
+        </select>
+
+        <select value={semesterFilter} onChange={e => setSemesterFilter(e.target.value)}>
+          <option value="all">All Semesters</option>
+          <option value="I">Semester I</option>
+          <option value="II">Semester II</option>
+        </select>
+
+        <select value={activeFilter} onChange={e => setActiveFilter(e.target.value)}>
+          <option value="all">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
       </div>
       <div className="courseGrid">
         {courses.map(c => {
