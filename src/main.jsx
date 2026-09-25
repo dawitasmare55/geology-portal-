@@ -764,9 +764,30 @@ function About({ user, meta }) {
                 borderRadius: '12px', overflow: 'hidden', display: 'flex', flexWrap: 'wrap'
               }}>
                 {p.image_url && (
-                  <img src={p.image_url} alt={p.title}
-                    style={{ width: '320px', minHeight: '200px', objectFit: 'cover' }} />
-                )}
+  <div style={{
+    flex: '0 0 320px',
+    maxWidth: '320px',
+    minHeight: '200px',
+    maxHeight: '400px',
+    overflow: 'hidden',
+    background: '#f0f4f8',
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'center'
+  }}>
+    <img
+      src={p.image_url}
+      alt={p.title}
+      style={{
+        width: '100%',
+        height: 'auto',
+        maxHeight: '400px',
+        objectFit: 'contain',
+        display: 'block'
+      }}
+    />
+  </div>
+)}
                 <div style={{ flex: 1, padding: '22px', minWidth: '260px' }}>
                   <h3 style={{ margin: '0 0 10px', color: '#102a43' }}>{p.title}</h3>
                   <p style={{ color: '#444', fontSize: '14px', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>{p.content}</p>
