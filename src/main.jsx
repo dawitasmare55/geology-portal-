@@ -441,7 +441,7 @@ const markPasswordChanged = async () => {
       {page==="research" && <Research publications={publications} setPublications={setPublications} user={user} meta={meta}/>}
       {page==="news" && <News newsItems={newsItems} setNewsItems={setNewsItems} user={user} meta={meta}/>}
       {page==="activities" && <Activities user={user} meta={meta}/>}
-      {page==="resources" && <Resources navigate={navigate}/>}
+      {page==="resources" && <Resources user={user} meta={meta}/>}
       {page==="contact" && <Contact/>}
       {page==="student" && <StudentPortal user={user} meta={meta} courses={courses} navigate={navigate} setSelectedCourse={setSelectedCourse}/>}
       {page==="students" && <Students navigate={navigate} />}
