@@ -44,7 +44,6 @@ const courseNames = [
 ];
 
 const courseDescriptions = {
-  // Year I, Semester I
   "Communicative English Language Skills I": "Develops foundational English communication skills for academic and professional contexts, focusing on reading, writing, speaking, and listening comprehension.",
   "General Physics": "Introduces the fundamental principles of physics, including mechanics, thermodynamics, waves, electricity, and magnetism, with applications in geological sciences.",
   "General Psychology": "Explores the basic concepts of human behavior, cognition, perception, learning, memory, motivation, and personality, with emphasis on psychological principles in everyday life.",
@@ -54,8 +53,6 @@ const courseDescriptions = {
   "Geography of Ethiopia and the Horn": "Explores the physical, human, environmental, and regional geography of Ethiopia and the Horn of Africa, including landforms, climate, population, and economic activities.",
   "Physical Fitness": "Promotes physical health, wellness, fitness, and motor skills through structured physical activities, exercise programs, and health education.",
   "Moral and Civic Education": "Examines ethical principles, civic responsibilities, social values, human rights, democracy, and good governance, fostering responsible citizenship and moral development.",
-
-  // Year I, Semester II
   "Communicative English Language Skills II": "Builds advanced communication skills in English, including academic writing, presentation skills, technical communication, and professional correspondence.",
   "Social Anthropology": "Introduces the study of human societies, cultures, social structures, traditions, beliefs, and cultural diversity, emphasizing anthropological perspectives and methods.",
   "General Biology": "Covers the fundamental concepts of biology, including cell structure, genetics, evolution, ecology, biodiversity, and physiological processes, with relevance to earth and environmental sciences.",
@@ -64,8 +61,6 @@ const courseDescriptions = {
   "Inclusiveness": "Addresses the principles of social inclusion, equity, diversity, and accessibility, exploring strategies for creating inclusive environments for people with disabilities and diverse backgrounds.",
   "Introduction to Economics": "Introduces the fundamental concepts of microeconomics and macroeconomics, including supply and demand, market structures, national income, inflation, unemployment, and economic policy.",
   "Global Trends": "Analyzes contemporary global issues, trends, and challenges including globalization, climate change, migration, technology, security, development, and international cooperation.",
-
-  // Year II, Semester I
   "General Geology": "Introduces the fundamental concepts of geology, including the Earth's origin, structure, composition, geological materials, internal and external processes, plate tectonics, geological time, minerals, rocks, fossils, and basic geological hazards.",
   "Paleontology": "Introduces fossils, fossilization processes, major groups of ancient organisms, and their distribution through geological time. Develops knowledge of fossil identification, evolution, extinction, paleoecology, and biostratigraphy.",
   "Practical Paleontology": "Provides hands-on training in identification, classification, description, and interpretation of fossils using specimens, photographs, and geological samples.",
@@ -74,8 +69,6 @@ const courseDescriptions = {
   "Mathematics for Geologists": "Applies mathematical concepts and techniques to geological problems, including statistics, calculus, differential equations, and data analysis methods used in geological research.",
   "Geomorphology": "Examines the origin, evolution, and characteristics of landforms produced by geological, climatic, tectonic, and surface processes, with emphasis on interpreting landforms and their environmental significance.",
   "Stratigraphy and Earth History": "Explores the principles of stratigraphy and the geological history of the Earth through rock sequences, geological time, correlation, unconformities, sedimentary environments, and biostratigraphy.",
-
-  // Year II, Semester II
   "Mineralogy": "Studies the composition, structure, physical and chemical properties, classification, occurrence, and formation of minerals, emphasizing major mineral groups and identification techniques.",
   "Practical Mineralogy": "Develops practical skills for identifying and describing minerals using their physical, chemical, and optical properties.",
   "Structural Geology": "Examines the deformation of rocks and the structures produced by tectonic forces, including folds, faults, joints, foliations, lineations, and shear zones.",
@@ -85,8 +78,6 @@ const courseDescriptions = {
   "Practical Sedimentary Petrology": "Develops practical skills in identifying, classifying, describing, and interpreting sedimentary rocks using hand specimens and thin sections.",
   "Physical Chemistry": "Explores the principles of physical chemistry relevant to geological processes, including thermodynamics, kinetics, phase equilibria, and chemical reactions in geological systems.",
   "Geological Mapping Techniques and Report Writing": "Introduces principles and techniques of geological field mapping, including observation, measurement, sampling, map preparation, and scientific report writing.",
-
-  // Year III, Semester I
   "Introduction to Computer Science": "Introduces the fundamentals of computer science, programming, algorithms, data structures, and computational thinking with applications in geological data processing.",
   "Remote Sensing and GIS": "Introduces remote sensing technologies and Geographic Information Systems for acquiring, processing, analyzing, and presenting spatial geological information.",
   "Statistics for Geologists": "Covers statistical methods and data analysis techniques used in geology, including descriptive statistics, probability, hypothesis testing, regression, and spatial statistics.",
@@ -94,8 +85,6 @@ const courseDescriptions = {
   "Practical Igneous Petrology": "Provides hands-on training in identifying and interpreting igneous rocks using hand specimens and thin sections.",
   "Mapping Sedimentary Terrain": "Provides field-based training in geological mapping of areas dominated by sedimentary rocks, including stratigraphic section measurement and map preparation.",
   "Geochemistry": "Studies the distribution, abundance, movement, and behavior of chemical elements and isotopes within the Earth, with applications in petrology, mineral exploration, and environmental studies.",
-
-  // Year III, Semester II
   "Mapping Igneous Terrain": "Focuses on geological field mapping in regions dominated by igneous rocks, including identification of intrusive and volcanic units and structural interpretation.",
   "Geophysics": "Introduces the physical principles and methods used to investigate the Earth's subsurface, including gravity, magnetic, electrical, and seismic methods.",
   "Principles of Hydrogeology": "Introduces the fundamental principles governing the occurrence, movement, recharge, discharge, and quality of groundwater.",
@@ -103,8 +92,6 @@ const courseDescriptions = {
   "Petroleum and Coal Geology": "Examines the geological origin, occurrence, accumulation, exploration, and development of petroleum and coal resources.",
   "Metamorphic Petrology": "Examines the mineralogical, textural, and chemical changes that occur in rocks under changing temperature, pressure, and fluid conditions.",
   "Practical Metamorphic Petrology": "Develops practical skills for identifying, classifying, and interpreting metamorphic rocks using hand specimens and thin sections.",
-
-  // Year IV, Semester I
   "Exploration Geophysics": "Focuses on the application of geophysical techniques to locate and characterize subsurface geological resources and structures.",
   "Engineering Geology": "Applies geological principles to engineering design, construction, and infrastructure development, including dams, roads, tunnels, foundations, and slopes.",
   "Economic Geology": "Studies geological processes responsible for the formation, distribution, characteristics, and economic significance of mineral deposits.",
@@ -114,8 +101,6 @@ const courseDescriptions = {
   "Research Methods in Geosciences": "Introduces the principles and procedures involved in conducting scientific research in the geosciences, including research design, data analysis, and scientific writing.",
   "Internship": "Provides students with supervised practical experience in professional geological environments such as geological surveys, mining companies, and consulting firms.",
   "Elective I": "Allows students to explore specialized topics in geology, mineral exploration, or related fields through focused study from available elective courses offered by the department.",
-
-  // Year IV, Semester II
   "Mineral Exploration and Mining": "Introduces the principles and techniques used to discover, evaluate, develop, and extract mineral resources.",
   "Volcanology and Geothermal Resources": "Studies volcanic processes, volcanic landforms, magma behavior, eruption mechanisms, volcanic hazards, and the geological controls of geothermal systems.",
   "Entrepreneurship": "Develops entrepreneurial skills and business knowledge for geoscience professionals, including business planning, project management, and financial analysis.",
@@ -184,13 +169,11 @@ const initialStudents = [
   {id:"DMU-GEO-0406",name:"Simegnew Mekonen",year:4,program:"BSc in Geology",status:"Active"},
   {id:"DMU-GEO-0407",name:"Tegegne Tienaw",year:4,program:"BSc in Geology",status:"Active"}
 ];
-// ============================================
-// MAIN APP
-// ============================================
 function App(){
   const [page,setPage]=useState("homepage");
   const [mobile,setMobile]=useState(false);
   const [mustChangePassword, setMustChangePassword] = useState(false);
+  const passwordCheckDone = useRef(false);
   const [courses,setCourses]=useState(initialCourses);
   const [user, setUser] = useState(null);
   const [meta, setMeta] = useState(null);
@@ -205,7 +188,6 @@ function App(){
   const [profilePic, setProfilePic] = useState(null);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
 
-  // ===== Auth =====
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -214,7 +196,7 @@ function App(){
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user ?? null);
       if (session?.user) loadMeta(session.user.id);
-      else { setMeta(null); setProfilePic(null); }
+      else { setMeta(null); setProfilePic(null); passwordCheckDone.current = false; }
     });
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -224,7 +206,6 @@ function App(){
     setMeta(data);
   };
 
-  // ===== Data loads =====
   useEffect(() => { (async () => {
     const { data } = await supabase.from('publications').select('*').order('created_at', { ascending: false });
     if (data) setPublications(data);
@@ -243,9 +224,19 @@ function App(){
       setCourses(cs => cs.map(c => map[c.id] !== undefined ? { ...c, active: map[c.id] } : c));
     }
   })(); }, []);
+
+  // Only set mustChangePassword ONCE per login — never re-lock mid-typing
   useEffect(() => {
-  if (!meta) { setMustChangePassword(false); return; }
-  setMustChangePassword(meta.password_changed === false);
+    if (!meta) {
+      setMustChangePassword(false);
+      passwordCheckDone.current = false;
+      return;
+    }
+    if (passwordCheckDone.current) return;
+
+    const needsChange = meta.password_changed === false;
+    setMustChangePassword(needsChange);
+    passwordCheckDone.current = true;
   }, [meta]);
 
   useEffect(() => {
@@ -263,34 +254,58 @@ function App(){
       if (data) setMaterials(prev => ({ ...prev, [selectedCourse.id]: data }));
     })();
   }, [selectedCourse]);
-  
-  // ===== Save profile pic =====
+
   const saveProfilePic = async (file) => {
     if (!file || !user) return;
     const res = await uploadToStorage('profiles', file);
-    if (!res) { alert('Upload failed'); return; }
+    if (!res) { alert('Upload failed. Check the bucket "profiles" exists and is public.'); return; }
+
+    const payload = {
+      user_id: user.id,
+      user_email: meta?.email || null,
+      user_name: meta?.name || null,
+      profile_pic: res.url
+    };
+
+    const { error: updErr } = await supabase
+      .from('profiles')
+      .update({ profile_pic: res.url, user_email: payload.user_email, user_name: payload.user_name })
+      .eq('user_id', user.id);
+
+    if (updErr) {
+      const { error: insErr } = await supabase.from('profiles').insert([payload]);
+      if (insErr) { alert('Save failed: ' + insErr.message); return; }
+    }
+
     setProfilePic(res.url);
-    await supabase.from('profiles').upsert({
-      user_id: user.id, user_email: meta?.email, user_name: meta?.name, profile_pic: res.url
-    }, { onConflict: 'user_id' });
     alert('✅ Profile picture saved!');
   };
 
   const removeProfilePic = async () => {
     if (!user) return;
     setProfilePic(null);
-    await supabase.from('profiles').upsert({ user_id: user.id, profile_pic: null }, { onConflict: 'user_id' });
+    await supabase.from('profiles').update({ profile_pic: null }).eq('user_id', user.id);
   };
-const markPasswordChanged = async () => {
-  if (!user) return;
-  const { error } = await supabase
-    .from('user_metadata')
-    .update({ password_changed: true })
-    .eq('id', user.id);
-  if (error) { alert('Could not update flag: ' + error.message); return; }
-  setMeta(m => m ? { ...m, password_changed: true } : m);
-  setMustChangePassword(false);
-};
+
+  const markPasswordChanged = async () => {
+    if (!user) return;
+
+    // Write the flag to the DB first — do not release the gate on error
+    const { error } = await supabase
+      .from('user_metadata')
+      .update({ password_changed: true })
+      .eq('id', user.id);
+
+    if (error) {
+      alert('Could not mark password as changed: ' + error.message);
+      return;
+    }
+
+    // Now safe to release
+    setMeta(m => m ? { ...m, password_changed: true } : m);
+    setMustChangePassword(false);
+  };
+
   const activeCourses = courses.filter(c => c.active);
   const filteredCourses = useMemo(() => courses.filter(c => {
     const q = search.toLowerCase();
@@ -340,9 +355,11 @@ const markPasswordChanged = async () => {
     await supabase.auth.signOut();
     setUser(null); setMeta(null);
     setLoginOpen(false); setProfilePic(null);
+    setMustChangePassword(false);
+    passwordCheckDone.current = false;
     navigate("homepage");
   }
-  // Force password change gate — must run BEFORE the normal app UI
+
   if (user && meta && mustChangePassword) {
     return (
       <ForcePasswordChange
@@ -356,7 +373,6 @@ const markPasswordChanged = async () => {
   return (
     <div className="app">
       <header className="topbar">
-  {/* 2. Brand logo on the far left */}
   <div className="brand" onClick={()=>navigate("homepage")} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
     <img src="/Geology.jpg" alt="DMU Logo" className="logo-img" />
     <div className="brand-text">
@@ -378,7 +394,6 @@ const markPasswordChanged = async () => {
 
     {user ? (
       <>
-        {/* 3. Badge ABOVE the name */}
         <div style={{
           display: 'inline-flex',
           flexDirection: 'column',
@@ -434,7 +449,7 @@ const markPasswordChanged = async () => {
 </header>
 
       {page==="homepage" && <Homepage navigate={navigate} activeCourses={activeCourses.length} students={42}/>}
-      {page==="about" && <About/>}
+      {page==="about" && <About user={user} meta={meta}/>}
       {page==="academics" && <Academics navigate={navigate} user={user} meta={meta}/>}
       {page==="courses" && <CoursesPage courses={filteredCourses} search={search} setSearch={setSearch} yearFilter={yearFilter} setYearFilter={setYearFilter} activeFilter={activeFilter} setActiveFilter={setActiveFilter} setSelectedCourse={setSelectedCourse} meta={meta}/>}
       {page==="staff" && <Staff profilePic={profilePic} saveProfilePic={saveProfilePic} removeProfilePic={removeProfilePic} user={user} meta={meta}/>}
@@ -457,9 +472,6 @@ const markPasswordChanged = async () => {
   );
 }
 
-// ============================================
-// HOMEPAGE / SLIDER / SMALL COMPONENTS
-// ============================================
 function Homepage({ navigate, activeCourses, students }) {
   const images = ['/Amethyst.jpg','/Opal.webp','/GERD.webp','/sapphire.avif','/bridge-over-blue-nile.webp','/choke mountains1.jpg','/choke mountains2.jpg','/my-background.jpg.jpg'];
   window.navigate = navigate;
@@ -514,11 +526,7 @@ function Feature({icon,title,text,onClick}){return <button className="feature" o
 function SectionTitle({kicker,title,text}){return <div className="sectionTitle"><div className="eyebrow">{kicker}</div><h2>{title}</h2>{text&&<p>{text}</p>}</div>}
 function Students({ navigate }) {
   const now = new Date();
-// Ethiopian academic calendar:
-// Semester I:   September 1 – January 1
-// Semester II:  January 2 – June 20
-// Break:        June 21 – August 31
-  const month = now.getMonth() + 1; // 1–12
+  const month = now.getMonth() + 1;
   const day = now.getDate();
   const isSemOne =
   (month === 9) ||
@@ -637,7 +645,165 @@ function Students({ navigate }) {
 }
 function Page({title,kicker,children}){return <main className="page"><div className="pageHero"><div className="eyebrow">{kicker}</div><h1>{title}</h1></div><section className="section">{children}</section></main>}
 
-function About(){return <Page title="About the Department" kicker="WHO WE ARE"><SectionTitle kicker="DEPARTMENT OVERVIEW" title="Geology at Debre Markos University"/><div className="twoCol"><article><h3>Overview</h3><p>The Department of Geology prepares graduates with strong geological knowledge.</p></article><article className="infoBox"><h3>Vision</h3><p>To become a leading center of geological education.</p></article></div></Page>}
+function About({ user, meta }) {
+  const isStaff = meta?.role === 'staff';
+  const [posts, setPosts] = useState([]);
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({ title: '', content: '', imageFile: null });
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('about_posts').select('*').order('created_at', { ascending: false });
+      if (data) setPosts(data);
+    })();
+  }, []);
+
+  const submit = async () => {
+    if (!form.title.trim()) return alert('Enter a title.');
+    setBusy(true);
+
+    let imageUrl = '';
+    if (form.imageFile) {
+      const up = await uploadToStorage('news-files', form.imageFile);
+      if (up) imageUrl = up.url;
+    }
+
+    if (editId) {
+      const updates = { title: form.title.trim(), content: form.content.trim() };
+      if (imageUrl) updates.image_url = imageUrl;
+      const { data, error } = await supabase.from('about_posts').update(updates).eq('id', editId).select();
+      setBusy(false);
+      if (error) return alert(error.message);
+      if (data?.[0]) setPosts(prev => prev.map(p => p.id === editId ? data[0] : p));
+    } else {
+      const row = {
+        title: form.title.trim(),
+        content: form.content.trim(),
+        image_url: imageUrl,
+        uploaded_by: meta?.name,
+        user_id: user.id
+      };
+      const { data, error } = await supabase.from('about_posts').insert([row]).select();
+      setBusy(false);
+      if (error) return alert(error.message);
+      if (data) setPosts(prev => [...data, ...prev]);
+    }
+
+    setForm({ title: '', content: '', imageFile: null });
+    setEditId(null);
+    setShowForm(false);
+  };
+
+  const del = async (id) => {
+    if (!confirm('Delete this post?')) return;
+    await supabase.from('about_posts').delete().eq('id', id);
+    setPosts(prev => prev.filter(p => p.id !== id));
+  };
+
+  return (
+    <Page title="About the Department" kicker="WHO WE ARE">
+
+      <SectionTitle kicker="DEPARTMENT OVERVIEW" title="Geology at Debre Markos University" />
+
+      <div className="twoCol">
+        <article>
+          <h3>Overview</h3>
+          <p>The Department of Geology prepares graduates with strong geological knowledge.</p>
+        </article>
+        <article className="infoBox">
+          <h3>Vision</h3>
+          <p>To become a leading center of geological education.</p>
+        </article>
+      </div>
+
+      <div style={{ marginTop: '40px' }}>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between',
+          alignItems: 'center', flexWrap: 'wrap', gap: '10px',
+          marginBottom: '20px'
+        }}>
+          <h2 style={{ margin: 0, color: '#102a43' }}>About Our Department ({posts.length})</h2>
+          {isStaff && (
+            <button className="primary" onClick={() => { setShowForm(!showForm); setEditId(null); setForm({ title: '', content: '', imageFile: null }); }} style={{ background: '#28a745' }}>
+              {showForm ? '📕 Close Form' : '📝 Add Post'}
+            </button>
+          )}
+        </div>
+
+        {isStaff && showForm && (
+          <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '12px', marginBottom: '25px', border: '1px solid #dbe4ec' }}>
+            <h3 style={{ color: '#102a43', marginBottom: '15px' }}>{editId ? '✏️ Edit Post' : '📝 New Post'}</h3>
+            <div style={{ display: 'grid', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Title *</label>
+                <input type="text" value={form.title}
+                  onChange={e => setForm({ ...form, title: e.target.value })}
+                  placeholder="e.g. History of the Geology Department"
+                  style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Content</label>
+                <textarea value={form.content} rows="5"
+                  onChange={e => setForm({ ...form, content: e.target.value })}
+                  placeholder="Write about the department..."
+                  style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Photo</label>
+                <input type="file" accept="image/*"
+                  onChange={e => setForm({ ...form, imageFile: e.target.files[0] })} />
+              </div>
+            </div>
+            <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
+              <button className="primary" onClick={submit} disabled={busy} style={{ background: '#28a745' }}>
+                {busy ? 'Saving...' : editId ? '✅ Update' : '✅ Publish'}
+              </button>
+              <button className="secondary" onClick={() => { setShowForm(false); setEditId(null); }}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {posts.length === 0 ? (
+          <p style={{ color: '#66788a', textAlign: 'center', padding: '30px', background: '#f8f9fa', borderRadius: '12px' }}>
+            {isStaff ? 'Click "Add Post" to add the first post.' : 'No posts yet.'}
+          </p>
+        ) : (
+          <div style={{ display: 'grid', gap: '20px' }}>
+            {posts.map(p => (
+              <article key={p.id} style={{
+                background: 'white', border: '1px solid #dbe4ec',
+                borderRadius: '12px', overflow: 'hidden', display: 'flex', flexWrap: 'wrap'
+              }}>
+                {p.image_url && (
+                  <img src={p.image_url} alt={p.title}
+                    style={{ width: '320px', minHeight: '200px', objectFit: 'cover' }} />
+                )}
+                <div style={{ flex: 1, padding: '22px', minWidth: '260px' }}>
+                  <h3 style={{ margin: '0 0 10px', color: '#102a43' }}>{p.title}</h3>
+                  <p style={{ color: '#444', fontSize: '14px', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>{p.content}</p>
+                  <p style={{ fontSize: '12px', color: '#999', marginTop: '12px' }}>
+                    Posted by {p.uploaded_by} • {p.created_at ? new Date(p.created_at).toLocaleDateString() : ''}
+                  </p>
+                  {isStaff && user.id === p.user_id && (
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                      <button className="secondary"
+                        onClick={() => { setEditId(p.id); setForm({ title: p.title, content: p.content || '', imageFile: null }); setShowForm(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                        style={{ color: '#1769aa', borderColor: '#1769aa' }}>✏️ Edit</button>
+                      <button className="secondary" onClick={() => del(p.id)} style={{ color: '#dc3545' }}>🗑️ Delete</button>
+                    </div>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+
+    </Page>
+  );
+}
 
 function Activities({ user, meta }) {
   const [activities, setActivities] = useState([]);
@@ -651,7 +817,6 @@ function Activities({ user, meta }) {
 
   const isStaff = meta?.role === 'staff';
 
-  // Load activities
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from('activities')
@@ -661,13 +826,11 @@ function Activities({ user, meta }) {
     })();
   }, []);
 
-  // Reset form helper
   const resetForm = () => {
     setForm({ title: '', description: '', category: 'Field Trip', date: '', location: '', imageFile: null });
     setEditingId(null);
   };
 
-  // ============ CREATE ============
   const submit = async () => {
     if (!form.title.trim()) return alert('Please enter a title.');
     if (!form.imageFile) return alert('Please choose an image.');
@@ -697,7 +860,6 @@ function Activities({ user, meta }) {
     alert('✅ Activity posted!');
   };
 
-  // ============ EDIT START ============
   const startEdit = (activity) => {
     setEditingId(activity.id);
     setForm({
@@ -712,7 +874,6 @@ function Activities({ user, meta }) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // ============ EDIT SAVE ============
   const saveEdit = async () => {
     if (!editingId) return;
     if (!form.title.trim()) return alert('Please enter a title.');
@@ -750,14 +911,12 @@ function Activities({ user, meta }) {
     alert('✅ Activity updated!');
   };
 
-  // ============ DELETE ============
   const del = async (id) => {
     if (!confirm('Delete this activity?')) return;
     await supabase.from('activities').delete().eq('id', id);
     setActivities(prev => prev.filter(a => a.id !== id));
   };
 
-  // ============ STATIC CATEGORY CARDS ============
   const staticCategories = [
     { label: 'Field Trips',        icon: '🚌', color: '#1769aa' },
     { label: 'Seminars',           icon: '🎤', color: '#6f42c1' },
@@ -770,7 +929,6 @@ function Activities({ user, meta }) {
   return (
     <Page title="Department Activities" kicker="ENGAGEMENT">
 
-      {/* ================= HERO ================= */}
       <div style={{
         background: 'linear-gradient(135deg, #102a43 0%, #1769aa 100%)',
         color: 'white',
@@ -799,7 +957,6 @@ function Activities({ user, meta }) {
         </div>
       </div>
 
-      {/* ================= STATIC CATEGORY CARDS ================= */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
@@ -843,7 +1000,6 @@ function Activities({ user, meta }) {
         ))}
       </div>
 
-      {/* ================= RECENT ACTIVITIES HEADER ================= */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -886,7 +1042,6 @@ function Activities({ user, meta }) {
         )}
       </div>
 
-      {/* ================= FORM (staff only) ================= */}
       {isStaff && showForm && (
         <div style={{
           background: 'linear-gradient(135deg, #f8f9fa, #ffffff)',
@@ -994,7 +1149,6 @@ function Activities({ user, meta }) {
         </div>
       )}
 
-      {/* ================= ACTIVITY CARDS ================= */}
       {activities.length === 0 ? (
         <div style={{
           textAlign: 'center', padding: '60px 30px',
@@ -1024,7 +1178,6 @@ function Activities({ user, meta }) {
               flexWrap: 'wrap',
               transition: 'box-shadow 0.2s'
             }}>
-              {/* IMAGE */}
               {a.image_url ? (
                 <img
                   src={a.image_url}
@@ -1050,7 +1203,6 @@ function Activities({ user, meta }) {
                 }}>📷</div>
               )}
 
-              {/* CONTENT */}
               <div style={{
                 flex: 1,
                 minWidth: '300px',
@@ -1058,7 +1210,6 @@ function Activities({ user, meta }) {
                 display: 'flex',
                 flexDirection: 'column'
               }}>
-                {/* Badges row */}
                 <div style={{
                   display: 'flex', gap: '8px', alignItems: 'center',
                   flexWrap: 'wrap', marginBottom: '12px'
@@ -1116,7 +1267,6 @@ function Activities({ user, meta }) {
                   </p>
                 )}
 
-                {/* Footer */}
                 <div style={{
                   marginTop: 'auto',
                   paddingTop: '14px',
@@ -1193,9 +1343,6 @@ function Activities({ user, meta }) {
   );
 }
 
-// ============================================
-// Local styles for this component
-// ============================================
 const labelStyle = {
   display: 'block',
   fontWeight: '600',
@@ -1251,7 +1398,6 @@ function Resources({ user, meta }) {
     })();
   }, []);
 
-  // Reset when switching tabs or leaving form
   useEffect(() => { setShowForm(false); setEditingId(null); setEditingTable(null); }, [tab]);
 
   const resetForm = () => {
@@ -1265,7 +1411,6 @@ function Resources({ user, meta }) {
     setMapForm({ title: '', map_type: 'Geological Map', scale: '', region: '', year: '', publisher: '', description: '', imageFile: null, file: null });
   };
 
-  // ============ SUBMITS ============
   const submitLab = async () => {
     if (!labForm.name.trim()) return alert('Lab name required.');
     setBusy(true);
@@ -1482,7 +1627,6 @@ function Resources({ user, meta }) {
     setter(prev => prev.filter(x => x.id !== id));
   };
 
-  // ============ EDIT STARTERS ============
   const startEditLab = (lab) => {
     setEditingId(lab.id); setEditingTable('lab_rooms');
     setLabForm({
@@ -1548,7 +1692,6 @@ function Resources({ user, meta }) {
     'Retired':       { bg: '#f8d7da', fg: '#721c24' },
   })[c] || { bg: '#e2e3e5', fg: '#383d41' };
 
-  // ============ ROW CARD (reused) ============
   const RowCard = ({ image, placeholderIcon, children, item, tableName, setter, onEdit }) => (
     <article style={{
       background: 'white',
@@ -1654,7 +1797,6 @@ function Resources({ user, meta }) {
   return (
     <Page title="Academic Resources" kicker="LEARNING CENTER">
 
-      {/* HERO */}
       <div style={{
         background: 'linear-gradient(135deg, #102a43 0%, #1769aa 100%)',
         color: 'white', padding: '28px 32px', borderRadius: '16px',
@@ -1676,7 +1818,6 @@ function Resources({ user, meta }) {
         </p>
       </div>
 
-      {/* TABS */}
       <div style={{
         display: 'flex', gap: '6px', flexWrap: 'wrap',
         borderBottom: '2px solid #dbe4ec', marginBottom: '25px'
@@ -1688,7 +1829,6 @@ function Resources({ user, meta }) {
         <TabBtn id="maps"      label="🗺️ Maps"             count={maps.length} />
       </div>
 
-      {/* ================= LABS ================= */}
       {tab === 'labs' && (
         <>
           {isStaff && <div style={{ marginBottom: '20px' }}><AddBtn label="📝 Add Lab Room" /></div>}
@@ -1725,7 +1865,6 @@ function Resources({ user, meta }) {
         </>
       )}
 
-      {/* ================= EQUIPMENT ================= */}
       {tab === 'equipment' && (
         <>
           {isStaff && <div style={{ marginBottom: '20px' }}><AddBtn label="📝 Add Equipment" /></div>}
@@ -1802,7 +1941,6 @@ function Resources({ user, meta }) {
         </>
       )}
 
-      {/* ================= OFFICES ================= */}
       {tab === 'offices' && (
         <>
           {isStaff && <div style={{ marginBottom: '20px' }}><AddBtn label="📝 Add Office" /></div>}
@@ -1843,7 +1981,6 @@ function Resources({ user, meta }) {
         </>
       )}
 
-      {/* ================= BOOKS ================= */}
       {tab === 'books' && (
         <>
           {isStaff && <div style={{ marginBottom: '20px' }}><AddBtn label="📝 Add Reference Book" /></div>}
@@ -1898,7 +2035,6 @@ function Resources({ user, meta }) {
         </>
       )}
 
-      {/* ================= MAPS ================= */}
       {tab === 'maps' && (
         <>
           {isStaff && <div style={{ marginBottom: '20px' }}><AddBtn label="📝 Add Map" /></div>}
@@ -1945,7 +2081,20 @@ function Resources({ user, meta }) {
                     {m.publisher && <p style={cardMetaStyle}>🏛️ {m.publisher}</p>}
                   </div>
                   {m.description && <p style={{ margin: '10px 0 12px', color: '#444', fontSize: '14px', lineHeight: '1.6' }}>{m.description}</p>}
-                  {m.file_url && (<a href={m.file_url} target="_blank" rel="noreferrer" style={linkStyle}>📥 Open / Download Map</a>)}
+                  {m.file_url && (
+                    isStaff ? (
+                      <a href={m.file_url} target="_blank" rel="noreferrer" style={linkStyle}>📥 Open / Download Map</a>
+                    ) : (
+                      <span style={{
+                        display: 'inline-block', marginTop: '10px',
+                        padding: '8px 16px',
+                        background: '#eaf4fb', color: '#1769aa',
+                        borderRadius: '6px', fontSize: '13px', fontWeight: '600'
+                      }}>
+                        🗺️ Map available — visit the department office to view
+                      </span>
+                    )
+                  )}
                 </RowCard>
               ))}
             </FullWidthGrid>
@@ -1957,9 +2106,6 @@ function Resources({ user, meta }) {
   );
 }
 
-// ============================================
-// Shared helpers + styles
-// ============================================
 function Field({ label, children }) {
   return (
     <div>
@@ -2037,9 +2183,6 @@ function CoursesPage({ courses, search, setSearch, yearFilter, setYearFilter, ac
   );
 }
 
-// ============================================
-// LOGIN MODAL (Supabase Auth)
-// ============================================
 function LoginModal({ close, doLogin }) {
   const [type, setType] = useState('student');
   const [email, setEmail] = useState('');
@@ -2051,7 +2194,6 @@ function LoginModal({ close, doLogin }) {
     setErr('');
     setBusy(true);
     let loginEmail = email.trim();
-    // Allow students to type username instead of email
     if (type === 'student' && !loginEmail.includes('@')) {
       loginEmail = `${loginEmail}@student.dmu.edu.et`;
     }
@@ -2100,9 +2242,6 @@ function LoginModal({ close, doLogin }) {
   );
 }
 
-// ============================================
-// EXAM SYSTEM
-// ============================================
 function ExamSystem({ user, meta }) {
   const [exams, setExams] = useState([]);
   const [results, setResults] = useState([]);
@@ -2291,7 +2430,6 @@ function ExamSystem({ user, meta }) {
     return `${m}m ${s}s`;
   };
 
-  // ============ EXCEL EXPORT ============
   const downloadExcel = () => {
     const rows = (filterYear === 'all'
       ? results
@@ -2333,7 +2471,6 @@ function ExamSystem({ user, meta }) {
     XLSX.writeFile(workbook, `exam_results_${sheetName.replace(/\s/g,'_')}_${timestamp}.xlsx`);
   };
 
-  // ============ STUDENT TAKING EXAM ============
   if (currentExam && isStudent && !submitted) {
     const q = currentExam.questions[qIndex];
     return (
@@ -2372,12 +2509,10 @@ function ExamSystem({ user, meta }) {
     );
   }
 
-  // ============ FILTERED RESULTS ============
   const filteredResults = filterYear === 'all'
     ? results
     : results.filter(r => r.student_year === filterYear);
 
-  // ============ MAIN VIEW ============
   return (
     <div style={{ marginTop: '40px', padding: '20px', background: 'white', borderRadius: '12px' }}>
       <h2 style={{ color: '#102a43' }}>📋 Exam System</h2>
@@ -2504,7 +2639,6 @@ function ExamSystem({ user, meta }) {
             </div>
           )}
 
-          {/* ============ RESULTS TABLE ============ */}
           {(isStaff || isStudent) && (
             <div style={{marginTop:'40px'}}>
               <div style={{
@@ -2537,7 +2671,7 @@ function ExamSystem({ user, meta }) {
                 <p style={{color:'#66788a'}}>No results submitted yet.</p>
               ) : (
                 <div style={{overflowX:'auto'}}>
-                  <table style={{width:'100%',borderCollapse:'collapse',fontSize:'13px',minWidth:'1900px'}}>
+                  <table style={{width:'100%',borderCollapse:'collapse',fontSize:'13px',minWidth:'2000px'}}>
                     <thead>
                       <tr style={{background:'#102a43',color:'white'}}>
                         <th style={{padding:'8px',textAlign:'left'}}>#</th>
@@ -2559,6 +2693,7 @@ function ExamSystem({ user, meta }) {
                         <th style={{padding:'8px',textAlign:'center'}}>Time Taken</th>
                         <th style={{padding:'8px',textAlign:'center'}}>Attempt</th>
                         <th style={{padding:'8px',textAlign:'left'}}>Submitted At</th>
+                        <th style={{padding:'8px',textAlign:'center'}}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2591,6 +2726,25 @@ function ExamSystem({ user, meta }) {
                           <td style={{padding:'8px',fontSize:'11px',color:'#66788a'}}>
                             {r.submitted_at ? new Date(r.submitted_at).toLocaleString() : '—'}
                           </td>
+                          <td style={{padding:'8px',textAlign:'center'}}>
+                            {isStaff && (
+                              <button
+                                onClick={async () => {
+                                  if (!confirm(`Delete result for ${r.student}?`)) return;
+                                  const { error } = await supabase.from('exam_results').delete().eq('id', r.id);
+                                  if (error) return alert(error.message);
+                                  setResults(prev => prev.filter(x => x.id !== r.id));
+                                }}
+                                style={{
+                                  background: '#dc3545', color: 'white',
+                                  border: 'none', padding: '5px 12px',
+                                  borderRadius: '6px', cursor: 'pointer', fontSize: '12px'
+                                }}
+                              >
+                                🗑️ Delete
+                              </button>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -2604,9 +2758,6 @@ function ExamSystem({ user, meta }) {
     </div>
   );
 }
-// ============================================
-// STUDENT PORTAL
-// ============================================
 function StudentPortal({ user, meta, courses, navigate, setSelectedCourse }) {
   if (!user || !meta) return <Page title="Student Portal" kicker="ACCESS"><p>Please login.</p></Page>;
   const isStaff = meta.role === 'staff';
@@ -2630,9 +2781,6 @@ function StudentPortal({ user, meta, courses, navigate, setSelectedCourse }) {
   );
 }
 
-// ============================================
-// COURSE MODAL (materials)
-// ============================================
 function CourseModal({ course, close, uploadMaterial, materials, toggleLock, user, meta }) {
   const [file, setFile] = useState(null);
   const [category, setCategory] = useState('Lecture Notes');
@@ -2680,9 +2828,6 @@ function CourseModal({ course, close, uploadMaterial, materials, toggleLock, use
   );
 }
 
-// ============================================
-// STAFF PAGE (with profile upload)
-// ============================================
 function Staff({ profilePic, saveProfilePic, removeProfilePic, user, meta }) {
   const isStaff = meta?.role === 'staff';
   const [allStaff, setAllStaff] = useState([]);
@@ -2694,7 +2839,6 @@ function Staff({ profilePic, saveProfilePic, removeProfilePic, user, meta }) {
   const [newAch, setNewAch] = useState('');
   const [busy, setBusy] = useState(false);
 
-  // Load all staff from user_metadata
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from('user_metadata')
@@ -2705,7 +2849,6 @@ function Staff({ profilePic, saveProfilePic, removeProfilePic, user, meta }) {
     })();
   }, []);
 
-  // Load my staff_profile_details
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -2765,7 +2908,6 @@ function Staff({ profilePic, saveProfilePic, removeProfilePic, user, meta }) {
   return (
     <Page title="Academic Staff" kicker="OUR PEOPLE">
 
-      {/* ============ MY STAFF PROFILE (only if logged in as staff) ============ */}
       {isStaff && (
         <div style={{
           background: 'white',
@@ -2792,7 +2934,6 @@ function Staff({ profilePic, saveProfilePic, removeProfilePic, user, meta }) {
           </div>
 
           <div style={{ display: 'flex', gap: '30px', marginTop: '20px', flexWrap: 'wrap' }}>
-            {/* Left: profile picture */}
             <div style={{ textAlign: 'center' }}>
               <ProfileUpload
                 user={meta}
@@ -2805,14 +2946,12 @@ function Staff({ profilePic, saveProfilePic, removeProfilePic, user, meta }) {
               </p>
             </div>
 
-            {/* Right: profile info */}
             <div style={{ flex: 1, minWidth: '260px' }}>
               <h3 style={{ margin: '0 0 5px', color: '#102a43', fontSize: '22px' }}>{meta?.name}</h3>
               <p style={{ color: '#1769aa', margin: '0 0 3px', fontWeight: '600' }}>{meta?.rank}</p>
               <p style={{ color: '#66788a', margin: '0 0 3px', fontSize: '14px' }}>🔬 {meta?.spec}</p>
               <p style={{ color: '#66788a', margin: '0 0 15px', fontSize: '14px' }}>📧 {meta?.email}</p>
 
-              {/* Editable fields */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#66788a', marginBottom: '3px' }}>Phone</label>
@@ -2841,7 +2980,6 @@ function Staff({ profilePic, saveProfilePic, removeProfilePic, user, meta }) {
             </div>
           </div>
 
-          {/* Bio */}
           <div style={{ marginTop: '20px' }}>
             <label style={{ display: 'block', fontWeight: '600', marginBottom: '6px', color: '#102a43' }}>Bio / About</label>
             {editing ? (
@@ -2856,7 +2994,6 @@ function Staff({ profilePic, saveProfilePic, removeProfilePic, user, meta }) {
             )}
           </div>
 
-          {/* Achievements */}
           <div style={{ marginTop: '20px' }}>
             <label style={{ display: 'block', fontWeight: '600', marginBottom: '6px', color: '#102a43' }}>
               🏆 Achievements ({details.achievements.length})
@@ -2918,7 +3055,6 @@ function Staff({ profilePic, saveProfilePic, removeProfilePic, user, meta }) {
         </div>
       )}
 
-      {/* ============ ALL STAFF DIRECTORY ============ */}
       <h2 style={{ color: '#102a43', marginBottom: '15px' }}>Department Staff ({allStaff.length})</h2>
 
       <div className="staffGrid" style={{
@@ -2970,7 +3106,6 @@ function Staff({ profilePic, saveProfilePic, removeProfilePic, user, meta }) {
         ))}
       </div>
 
-      {/* View other staff modal */}
       {selectedStaff && (
         <StaffViewModal
           staffMember={selectedStaff}
@@ -2981,9 +3116,6 @@ function Staff({ profilePic, saveProfilePic, removeProfilePic, user, meta }) {
   );
 }
 
-// ============================================
-// Staff view modal — shows another staff's bio + achievements
-// ============================================
 function StaffViewModal({ staffMember, onClose }) {
   const [details, setDetails] = useState(null);
 
@@ -3085,9 +3217,6 @@ function ProfileUpload({ user, profilePic, onUpload, onRemove }) {
   );
 }
 
-// ============================================
-// RESEARCH (publications)
-// ============================================
 function Research({ publications, setPublications, user, meta }) {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({title:'',authors:'',year:new Date().getFullYear(),journal:'',link:'',abstract:''});
@@ -3141,12 +3270,10 @@ function Research({ publications, setPublications, user, meta }) {
   );
 }
 
-// ============================================
-// NEWS
-// ============================================
 function News({ newsItems, setNewsItems, user, meta }) {
   const isStaff = meta?.role === 'staff';
   const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({
     title: '', category: 'News', content: '',
     imageFile: null, file: null
@@ -3157,7 +3284,8 @@ function News({ newsItems, setNewsItems, user, meta }) {
     if (!form.title.trim()) return alert('Please enter a title.');
     setBusy(true);
 
-    let imageUrl = '', fileUrl = '';
+    let imageUrl = '';
+    let fileUrl = '';
     if (form.imageFile) {
       const up = await uploadToStorage('news-files', form.imageFile);
       if (up) imageUrl = up.url;
@@ -3167,24 +3295,42 @@ function News({ newsItems, setNewsItems, user, meta }) {
       if (up) fileUrl = up.url;
     }
 
-    const row = {
-      title: form.title.trim(),
-      category: form.category,
-      content: form.content.trim() || 'No description.',
-      image_url: imageUrl,
-      file_url: fileUrl,
-      uploaded_by: meta?.name,
-      user_id: user.id,
-    };
+    if (editId) {
+      const updates = {
+        title: form.title.trim(),
+        category: form.category,
+        content: form.content.trim() || 'No description.'
+      };
+      if (imageUrl) updates.image_url = imageUrl;
+      if (fileUrl) updates.file_url = fileUrl;
 
-    const { data, error } = await supabase.from('news').insert([row]).select();
-    setBusy(false);
-    if (error) return alert(error.message);
+      const { data, error } = await supabase.from('news').update(updates).eq('id', editId).select();
+      setBusy(false);
+      if (error) return alert(error.message);
+      if (data && data[0]) {
+        setNewsItems(prev => prev.map(n => n.id === editId ? data[0] : n));
+      }
+      alert('✅ Updated!');
+    } else {
+      const row = {
+        title: form.title.trim(),
+        category: form.category,
+        content: form.content.trim() || 'No description.',
+        image_url: imageUrl,
+        file_url: fileUrl,
+        uploaded_by: meta?.name,
+        user_id: user.id,
+      };
+      const { data, error } = await supabase.from('news').insert([row]).select();
+      setBusy(false);
+      if (error) return alert(error.message);
+      if (data) setNewsItems(prev => [...data, ...prev]);
+      alert('✅ Posted!');
+    }
 
-    if (data) setNewsItems(prev => [...data, ...prev]);
     setForm({ title: '', category: 'News', content: '', imageFile: null, file: null });
+    setEditId(null);
     setShowForm(false);
-    alert('✅ Posted!');
   };
 
   const del = async (id) => {
@@ -3196,12 +3342,11 @@ function News({ newsItems, setNewsItems, user, meta }) {
   return (
     <Page title="News & Events" kicker="LATEST UPDATES">
 
-      {/* Post button (staff only) */}
       {isStaff && (
         <div style={{ textAlign: 'right', marginBottom: '20px' }}>
           <button
             className="primary"
-            onClick={() => setShowForm(!showForm)}
+            onClick={() => { setShowForm(!showForm); setEditId(null); setForm({ title: '', category: 'News', content: '', imageFile: null, file: null }); }}
             style={{ background: '#28a745' }}
           >
             {showForm ? '📕 Close Form' : '📝 Create New Post'}
@@ -3209,14 +3354,15 @@ function News({ newsItems, setNewsItems, user, meta }) {
         </div>
       )}
 
-      {/* Post form (staff only) */}
       {isStaff && showForm && (
         <div style={{
           background: '#f8f9fa', padding: '20px',
           borderRadius: '12px', marginBottom: '25px',
           border: '1px solid #dbe4ec'
         }}>
-          <h3 style={{ color: '#102a43', marginBottom: '15px' }}>📝 New Post</h3>
+          <h3 style={{ color: '#102a43', marginBottom: '15px' }}>
+            {editId ? '✏️ Edit Post' : '📝 New Post'}
+          </h3>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
             <div style={{ gridColumn: 'span 2' }}>
@@ -3267,14 +3413,13 @@ function News({ newsItems, setNewsItems, user, meta }) {
 
           <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
             <button className="primary" onClick={submit} disabled={busy} style={{ background: '#28a745' }}>
-              {busy ? 'Uploading...' : '✅ Publish'}
+              {busy ? 'Saving...' : editId ? '✅ Update' : '✅ Publish'}
             </button>
-            <button className="secondary" onClick={() => setShowForm(false)}>Cancel</button>
+            <button className="secondary" onClick={() => { setShowForm(false); setEditId(null); setForm({ title: '', category: 'News', content: '', imageFile: null, file: null }); }}>Cancel</button>
           </div>
         </div>
       )}
 
-      {/* All News list */}
       {newsItems.length === 0 ? (
         <div style={{
           textAlign: 'center', padding: '60px 20px',
@@ -3327,10 +3472,30 @@ function News({ newsItems, setNewsItems, user, meta }) {
                 </p>
 
                 {isStaff && user.id === n.user_id && (
-                  <button className="secondary" onClick={() => del(n.id)}
-                    style={{ marginTop: '10px', color: '#dc3545' }}>
-                    🗑️ Delete
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                    <button
+                      className="secondary"
+                      onClick={() => {
+                        setEditId(n.id);
+                        setForm({
+                          title: n.title || '',
+                          category: n.category || 'News',
+                          content: n.content || '',
+                          imageFile: null,
+                          file: null
+                        });
+                        setShowForm(true);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      style={{ color: '#1769aa', borderColor: '#1769aa' }}
+                    >
+                      ✏️ Edit
+                    </button>
+                    <button className="secondary" onClick={() => del(n.id)}
+                      style={{ color: '#dc3545' }}>
+                      🗑️ Delete
+                    </button>
+                  </div>
                 )}
               </div>
             </article>
@@ -3342,7 +3507,6 @@ function News({ newsItems, setNewsItems, user, meta }) {
   );
 }
 
-// Local styles for the News component
 const newsLabelStyle = {
   display: 'block',
   fontWeight: '600',
@@ -3357,9 +3521,6 @@ const newsInputStyle = {
   borderRadius: '6px',
   border: '1px solid #ccc'
 };
-// ============================================
-// FORCE PASSWORD CHANGE
-// ============================================
 function ForcePasswordChange({ meta, onChanged, onLogout }) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -3434,6 +3595,7 @@ function ForcePasswordChange({ meta, onChanged, onLogout }) {
           value={newPassword}
           onChange={e => setNewPassword(e.target.value)}
           placeholder="Enter new password"
+          autoComplete="new-password"
           style={{ width: '100%', padding: '10px', margin: '5px 0 12px', border: '1px solid #ccc', borderRadius: '8px' }}
         />
 
@@ -3443,6 +3605,7 @@ function ForcePasswordChange({ meta, onChanged, onLogout }) {
           value={confirmPassword}
           onChange={e => setConfirmPassword(e.target.value)}
           placeholder="Re-enter new password"
+          autoComplete="new-password"
           onKeyPress={e => e.key === 'Enter' && submit()}
           style={{ width: '100%', padding: '10px', margin: '5px 0 18px', border: '1px solid #ccc', borderRadius: '8px' }}
         />
@@ -3467,8 +3630,5 @@ function ForcePasswordChange({ meta, onChanged, onLogout }) {
     </div>
   );
 }
-// ============================================
-// RENDER
-// ============================================
 function AppRoot(){ return <App/>; }
 createRoot(document.getElementById("root")).render(<AppRoot/>);
