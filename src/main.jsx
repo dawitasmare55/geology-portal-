@@ -3147,30 +3147,12 @@ function Research({ publications, setPublications, user, meta }) {
 function News({ newsItems, setNewsItems, user, meta }) {
   const isStaff = meta?.role === 'staff';
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [carouselIndex, setCarouselIndex] = useState(0);
-  const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
     title: '', category: 'News', content: '',
-    imageFile: null, file: null,
+    imageFile: null, file: null
   });
+  const [busy, setBusy] = useState(false);
 
-  const newsOnly = newsItems.filter(n => n.category !== 'Event');
-  const eventsOnly = newsItems.filter(n => n.category === 'Event');
-
-  const visibleCards = 3;
-  const maxIndex = Math.max(0, newsOnly.length - visibleCards);
-
-  const next = () => setCarouselIndex(i => Math.min(maxIndex, i + 1));
-  const prev = () => setCarouselIndex(i => Math.max(0, i - 1));
-
-  const resetForm = () => {
-    setForm({ title: '', category: 'News', content: '', imageFile: null, file: null });
-    setEditingId(null);
-    setShowForm(false);
-  };
-
-  // ============ CREATE ============
   const submit = async () => {
     if (!form.title.trim()) return alert('Please enter a title.');
     setBusy(true);
@@ -3200,553 +3182,163 @@ function News({ newsItems, setNewsItems, user, meta }) {
     if (error) return alert(error.message);
 
     if (data) setNewsItems(prev => [...data, ...prev]);
-    resetForm();
+    setForm({ title: '', category: 'News', content: '', imageFile: null, file: null });
+    setShowForm(false);
     alert('✅ Posted!');
   };
 
-  // ============ EDIT START ============
-  const startEdit = (news) => {
-    setEditingId(news.id);
-    setForm({
-      title: news.title || '',
-      category: news.category || 'News',
-      content: news.content || '',
-      imageFile: null,
-      file: null,
-    });
-    setShowForm(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  // ============ EDIT SAVE ============
-  const saveEdit = async () => {
-    if (!editingId) return;
-    if (!form.title.trim()) return alert('Please enter a title.');
-    setBusy(true);
-
-    let imageUrl = null, fileUrl = null;
-    if (form.imageFile) {
-      const up = await uploadToStorage('news-files', form.imageFile);
-      if (up) imageUrl = up.url;
-    }
-    if (form.file) {
-      const up = await uploadToStorage('news-files', form.file);
-      if (up) fileUrl = up.url;
-    }
-
-    const updates = {
-      title: form.title.trim(),
-      category: form.category,
-      content: form.content.trim() || 'No description.',
-    };
-    if (imageUrl) updates.image_url = imageUrl;
-    if (fileUrl) updates.file_url = fileUrl;
-
-    const { data, error } = await supabase
-      .from('news')
-      .update(updates)
-      .eq('id', editingId)
-      .select();
-
-    setBusy(false);
-    if (error) return alert(error.message);
-
-    if (data && data[0]) {
-      setNewsItems(prev => prev.map(n => n.id === editingId ? data[0] : n));
-    }
-    resetForm();
-    alert('✅ News updated!');
-  };
-
-  // ============ DELETE ============
   const del = async (id) => {
     if (!confirm('Delete this item?')) return;
     await supabase.from('news').delete().eq('id', id);
     setNewsItems(prev => prev.filter(n => n.id !== id));
   };
 
-  // ============ BADGE COLORS BY CATEGORY ============
-  const categoryColor = (c) => ({
-    'News':         '#1769aa',
-    'Event':        '#28a745',
-    'Seminar':      '#6f42c1',
-    'Brochure':     '#fd7e14',
-    'Banner':       '#e83e8c',
-    'Information':  '#17a2b8',
-    'Announcement': '#dc3545',
-  })[c] || '#66788a';
-
-  const categoryIcon = (c) => ({
-    'News':         '📰',
-    'Event':        '📅',
-    'Seminar':      '🎓',
-    'Brochure':     '📄',
-    'Banner':       '🖼️',
-    'Information':  'ℹ️',
-    'Announcement': '📢',
-  })[c] || '📌';
-
   return (
-    <main className="page">
-      <div className="pageHero">
-        <div className="eyebrow">LATEST UPDATES</div>
-        <h1>News &amp; Events</h1>
-      </div>
+    <Page title="News & Events" kicker="LATEST UPDATES">
 
-      <section className="section">
+      {/* Post button (staff only) */}
+      {isStaff && (
+        <div style={{ textAlign: 'right', marginBottom: '20px' }}>
+          <button
+            className="primary"
+            onClick={() => setShowForm(!showForm)}
+            style={{ background: '#28a745' }}
+          >
+            {showForm ? '📕 Close Form' : '📝 Create New Post'}
+          </button>
+        </div>
+      )}
 
-        {/* ==================== HERO ==================== */}
+      {/* Post form (staff only) */}
+      {isStaff && showForm && (
         <div style={{
-          background: 'linear-gradient(135deg, #102a43 0%, #1769aa 100%)',
-          color: 'white',
-          padding: '30px 35px',
-          borderRadius: '16px',
-          marginBottom: '35px',
-          position: 'relative',
-          overflow: 'hidden'
+          background: '#f8f9fa', padding: '20px',
+          borderRadius: '12px', marginBottom: '25px',
+          border: '1px solid #dbe4ec'
         }}>
-          <div style={{
-            position: 'absolute', top: '-40px', right: '-40px',
-            fontSize: '180px', opacity: 0.08, transform: 'rotate(12deg)',
-            pointerEvents: 'none'
-          }}>📰</div>
-          <div style={{ position: 'relative' }}>
-            <p style={{ margin: 0, opacity: 0.8, fontSize: '12px', letterSpacing: '2px', fontWeight: '700' }}>
-              DEPARTMENT OF GEOLOGY
-            </p>
-            <h2 style={{ margin: '8px 0 6px', fontSize: '26px', fontWeight: '700' }}>
-              News, Events &amp; Announcements
-            </h2>
-            <p style={{ margin: 0, opacity: 0.85, fontSize: '14px', maxWidth: '600px', lineHeight: '1.6' }}>
-              Latest updates, upcoming events, seminars, and important announcements
-              from the Department of Geology.
-            </p>
+          <h3 style={{ color: '#102a43', marginBottom: '15px' }}>📝 New Post</h3>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+            <div style={{ gridColumn: 'span 2' }}>
+              <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Title *</label>
+              <input type="text" value={form.title}
+                onChange={e => setForm({ ...form, title: e.target.value })}
+                placeholder="Headline..."
+                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Category</label>
+              <select value={form.category}
+                onChange={e => setForm({ ...form, category: e.target.value })}
+                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}>
+                <option>News</option>
+                <option>Event</option>
+                <option>Seminar</option>
+                <option>Brochure</option>
+                <option>Banner</option>
+                <option>Information</option>
+                <option>Announcement</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Photo</label>
+              <input type="file" accept="image/*"
+                onChange={e => setForm({ ...form, imageFile: e.target.files[0] })}
+                style={{ padding: '8px' }} />
+            </div>
+
+            <div style={{ gridColumn: 'span 2' }}>
+              <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Content</label>
+              <textarea value={form.content} rows="4"
+                onChange={e => setForm({ ...form, content: e.target.value })}
+                placeholder="Write the story..."
+                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
+            </div>
+
+            <div style={{ gridColumn: 'span 2' }}>
+              <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px' }}>Attachment (optional)</label>
+              <input type="file"
+                onChange={e => setForm({ ...form, file: e.target.files[0] })}
+                style={{ padding: '8px' }} />
+            </div>
+          </div>
+
+          <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
+            <button className="primary" onClick={submit} disabled={busy} style={{ background: '#28a745' }}>
+              {busy ? 'Uploading...' : '✅ Publish'}
+            </button>
+            <button className="secondary" onClick={() => setShowForm(false)}>Cancel</button>
           </div>
         </div>
+      )}
 
-        {/* ==================== STAFF POST BUTTON ==================== */}
-        {isStaff && (
-          <div style={{ textAlign: 'right', marginBottom: '20px' }}>
-            <button
-              className="primary"
-              onClick={() => {
-                if (showForm && editingId) resetForm();
-                else setShowForm(!showForm);
-              }}
-              style={{ background: '#28a745', padding: '12px 24px', fontSize: '14px' }}
-            >
-              {showForm ? '📕 Close Form' : '📝 Create New Post'}
-            </button>
-          </div>
-        )}
-
-        {/* ==================== FORM (create / edit) ==================== */}
-        {isStaff && showForm && (
-          <div style={{
-            background: editingId ? 'linear-gradient(135deg, #eaf4fb, #ffffff)' : 'linear-gradient(135deg, #f8f9fa, #ffffff)',
-            padding: '26px',
-            borderRadius: '14px',
-            marginBottom: '30px',
-            border: editingId ? '2px solid #1769aa' : '1px solid #dbe4ec',
-            boxShadow: '0 4px 14px rgba(0,0,0,0.05)'
-          }}>
-            <h3 style={{
-              color: '#102a43', marginTop: 0, marginBottom: '20px',
-              display: 'flex', alignItems: 'center', gap: '10px'
-            }}>
-              {editingId ? '✏️ Edit Post' : '📝 New Post'}
-            </h3>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div style={{ gridColumn: 'span 2' }}>
-                <label style={newsLabelStyle}>Title *</label>
-                <input
-                  type="text" value={form.title}
-                  onChange={e => setForm({ ...form, title: e.target.value })}
-                  placeholder="e.g. Guest lecture on volcanic hazards"
-                  style={newsInputStyle}
-                />
-              </div>
-
-              <div>
-                <label style={newsLabelStyle}>Category</label>
-                <select
-                  value={form.category}
-                  onChange={e => setForm({ ...form, category: e.target.value })}
-                  style={newsInputStyle}
-                >
-                  <option>News</option>
-                  <option>Event</option>
-                  <option>Seminar</option>
-                  <option>Brochure</option>
-                  <option>Banner</option>
-                  <option>Information</option>
-                  <option>Announcement</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={newsLabelStyle}>
-                  Photo {editingId ? '(leave empty to keep current)' : ''}
-                </label>
-                <input
-                  type="file" accept="image/*"
-                  onChange={e => setForm({ ...form, imageFile: e.target.files[0] })}
-                  style={{ ...newsInputStyle, padding: '9px' }}
-                />
-              </div>
-
-              <div style={{ gridColumn: 'span 2' }}>
-                <label style={newsLabelStyle}>Content</label>
-                <textarea
-                  value={form.content} rows="5"
-                  onChange={e => setForm({ ...form, content: e.target.value })}
-                  placeholder="Write the story..."
-                  style={newsInputStyle}
-                />
-              </div>
-
-              <div style={{ gridColumn: 'span 2' }}>
-                <label style={newsLabelStyle}>
-                  Attachment {editingId ? '(optional — leave empty to keep current)' : '(optional)'}
-                </label>
-                <input
-                  type="file"
-                  onChange={e => setForm({ ...form, file: e.target.files[0] })}
-                  style={{ ...newsInputStyle, padding: '9px' }}
-                />
-              </div>
-            </div>
-
-            <div style={{ marginTop: '20px', display: 'flex', gap: '12px' }}>
-              <button
-                className="primary"
-                onClick={editingId ? saveEdit : submit}
-                disabled={busy}
-                style={{ background: '#28a745', padding: '11px 26px' }}
-              >
-                {busy ? 'Saving...' : editingId ? '✅ Update Post' : '✅ Publish'}
-              </button>
-              <button className="secondary" onClick={resetForm} style={{ padding: '11px 26px' }}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ==================== NEWS CAROUSEL ==================== */}
-        {newsOnly.length > 0 && (
-          <div style={{ position: 'relative', marginBottom: '60px' }}>
-
-            {carouselIndex > 0 && (
-              <button
-                onClick={prev}
-                style={{
-                  position: 'absolute', left: '-20px', top: '35%',
-                  transform: 'translateY(-50%)',
-                  background: '#1769aa', color: 'white', border: 'none',
-                  borderRadius: '50%', width: '52px', height: '52px',
-                  display: 'grid', placeItems: 'center', cursor: 'pointer',
-                  zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                }}
-              >
-                <ChevronLeft size={26} />
-              </button>
-            )}
-
-            {carouselIndex < maxIndex && (
-              <button
-                onClick={next}
-                style={{
-                  position: 'absolute', right: '-20px', top: '35%',
-                  transform: 'translateY(-50%)',
-                  background: '#1769aa', color: 'white', border: 'none',
-                  borderRadius: '50%', width: '52px', height: '52px',
-                  display: 'grid', placeItems: 'center', cursor: 'pointer',
-                  zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                }}
-              >
-                <ChevronRight size={26} />
-              </button>
-            )}
-
-            <div style={{ overflow: 'hidden' }}>
-              <div style={{
-                display: 'flex', gap: '30px',
-                transition: 'transform 0.4s ease',
-                transform: `translateX(calc(-${carouselIndex} * (33.333% + 10px)))`
-              }}>
-                {newsOnly.map((n) => (
-                  <article
-                    key={n.id}
-                    style={{ flex: `0 0 calc(33.333% - 20px)`, cursor: 'pointer' }}
-                    onClick={() => {
-                      const el = document.getElementById(`news-${n.id}`);
-                      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }}
-                  >
-                    {n.image_url ? (
-                      <img
-                        src={n.image_url}
-                        alt={n.title}
-                        style={{
-                          width: '100%', height: '230px',
-                          objectFit: 'cover', borderRadius: '12px',
-                          marginBottom: '15px',
-                          boxShadow: '0 4px 14px rgba(0,0,0,0.08)'
-                        }}
-                      />
-                    ) : (
-                      <div style={{
-                        width: '100%', height: '230px',
-                        background: 'linear-gradient(135deg, #1a3a5c, #1769aa)',
-                        borderRadius: '12px', display: 'grid', placeItems: 'center',
-                        color: 'white', fontSize: '48px', marginBottom: '15px'
-                      }}>📰</div>
-                    )}
-                    <h3 style={{
-                      color: '#102a43', fontSize: '19px',
-                      fontWeight: '700', lineHeight: '1.35', margin: 0
-                    }}>
-                      {n.title}
-                    </h3>
-                  </article>
-                ))}
-              </div>
-            </div>
-
-            <div style={{
-              textAlign: 'center', marginTop: '35px',
-              display: 'flex', justifyContent: 'center', gap: '10px'
-            }}>
-              {Array.from({ length: maxIndex + 1 }).map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setCarouselIndex(i)}
-                  style={{
-                    width: '10px', height: '10px',
-                    borderRadius: '50%', border: 'none',
-                    background: i === carouselIndex ? '#1769aa' : '#c6d4e0',
-                    cursor: 'pointer', transition: 'background 0.3s'
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ==================== EVENTS SECTION ==================== */}
-        {eventsOnly.length > 0 && (
-          <div style={{ marginTop: '60px' }}>
-            <div style={{
+      {/* All News list */}
+      {newsItems.length === 0 ? (
+        <div style={{
+          textAlign: 'center', padding: '60px 20px',
+          background: '#f8f9fa', borderRadius: '12px'
+        }}>
+          <Newspaper size={52} color="#1769aa" />
+          <h3 style={{ color: '#102a43', marginTop: '15px' }}>No News Yet</h3>
+          <p style={{ color: '#66788a' }}>
+            {isStaff ? 'Click "Create New Post" to add the first post.' : 'Check back soon.'}
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gap: '20px' }}>
+          {newsItems.map(n => (
+            <article key={n.id} style={{
+              background: 'white',
+              border: '1px solid #dbe4ec',
+              borderRadius: '12px',
+              overflow: 'hidden',
               display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'baseline',
-              marginBottom: '25px'
+              flexWrap: 'wrap'
             }}>
-              <h2 style={{ color: '#102a43', fontSize: '32px', margin: 0, fontWeight: '800' }}>
-                Upcoming Events
-              </h2>
-              <a href="#all-events" style={{
-                color: '#1769aa', textDecoration: 'none',
-                fontWeight: '600', fontSize: '14px',
-                display: 'flex', alignItems: 'center', gap: '6px'
-              }}>
-                View All <ChevronRight size={16} />
-              </a>
-            </div>
+              {n.image_url && (
+                <div style={{ flex: '0 0 320px', maxWidth: '320px', minHeight: '220px', background: '#f0f4f8' }}>
+                  <img src={n.image_url} alt={n.title}
+                    style={{ width: '100%', height: '100%', minHeight: '220px', objectFit: 'cover' }} />
+                </div>
+              )}
 
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-              gap: '20px'
-            }} id="all-events">
-              {eventsOnly.map(e => (
-                <article key={e.id} style={{
-                  background: 'white',
-                  border: '1px solid #dbe4ec',
-                  borderRadius: '14px',
-                  overflow: 'hidden',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-                  display: 'flex',
-                  flexDirection: 'column'
-                }}>
-                  {e.image_url ? (
-                    <img src={e.image_url} alt={e.title}
-                      style={{ width: '100%', height: '190px', objectFit: 'cover' }} />
-                  ) : (
-                    <div style={{
-                      width: '100%', height: '190px',
-                      background: 'linear-gradient(135deg, #1a3a5c, #1769aa)',
-                      display: 'grid', placeItems: 'center',
-                      color: 'white', fontSize: '40px'
-                    }}>📅</div>
-                  )}
-                  <div style={{ padding: '18px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px' }}>
-                      <span style={{
-                        background: categoryColor(e.category),
-                        color: 'white',
-                        padding: '3px 10px', borderRadius: '12px',
-                        fontSize: '11px', fontWeight: '700',
-                        letterSpacing: '0.5px', textTransform: 'uppercase'
-                      }}>
-                        {categoryIcon(e.category)} {e.category}
-                      </span>
-                      {e.created_at && (
-                        <small style={{ color: '#66788a' }}>
-                          🗓️ {new Date(e.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                        </small>
-                      )}
-                    </div>
-                    <h3 style={{ margin: '0 0 10px', color: '#102a43', fontSize: '17px', lineHeight: '1.4' }}>
-                      {e.title}
-                    </h3>
-                    <p style={{ margin: 0, color: '#66788a', fontSize: '13px', lineHeight: '1.6', flex: 1 }}>
-                      {e.content?.substring(0, 140)}{e.content?.length > 140 ? '...' : ''}
-                    </p>
+              <div style={{ flex: 1, padding: '22px', minWidth: '260px' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '8px' }}>
+                  <span style={{
+                    background: '#1769aa', color: 'white',
+                    padding: '2px 10px', borderRadius: '12px',
+                    fontSize: '11px', fontWeight: '600'
+                  }}>{n.category}</span>
+                  <small style={{ color: '#66788a' }}>
+                    {n.created_at ? new Date(n.created_at).toLocaleDateString('en-GB') : 'Today'}
+                  </small>
+                </div>
 
-                    {isStaff && user.id === e.user_id && (
-                      <div style={{ marginTop: '14px', display: 'flex', gap: '8px' }}>
-                        <button
-                          onClick={() => startEdit(e)}
-                          style={{
-                            background: 'white', border: '1px solid #1769aa',
-                            color: '#1769aa', padding: '7px 14px',
-                            borderRadius: '8px', cursor: 'pointer',
-                            fontSize: '12px', fontWeight: '600'
-                          }}
-                        >✏️ Edit</button>
-                        <button
-                          onClick={() => del(e.id)}
-                          style={{
-                            background: 'white', border: '1px solid #dc3545',
-                            color: '#dc3545', padding: '7px 14px',
-                            borderRadius: '8px', cursor: 'pointer',
-                            fontSize: '12px', fontWeight: '600'
-                          }}
-                        >🗑️ Delete</button>
-                      </div>
-                    )}
-                  </div>
-                </article>
-              ))}
-            </div>
-          </div>
-        )}
+                <h3 style={{ margin: '4px 0 10px', color: '#102a43', fontSize: '20px' }}>{n.title}</h3>
 
-        {/* ==================== ALL NEWS (full list) ==================== */}
-        {newsOnly.length > 0 && (
-          <div style={{ marginTop: '60px' }}>
-            <h2 style={{ color: '#102a43', fontSize: '24px', marginBottom: '20px' }}>
-              All News ({newsOnly.length})
-            </h2>
-            <div style={{ display: 'grid', gap: '18px' }}>
-              {newsOnly.map(n => (
-                <article key={n.id} id={`news-${n.id}`} style={{
-                  background: 'white',
-                  border: '1px solid #dbe4ec',
-                  borderRadius: '14px',
-                  padding: '0',
-                  display: 'flex',
-                  gap: '0',
-                  flexWrap: 'wrap',
-                  overflow: 'hidden',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
-                }}>
-                  {n.image_url && (
-                    <img src={n.image_url} alt={n.title}
-                      style={{
-                        width: '260px', minHeight: '180px',
-                        objectFit: 'cover', flexShrink: 0
-                      }} />
-                  )}
-                  <div style={{ flex: 1, minWidth: '260px', padding: '20px', display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px' }}>
-                      <span style={{
-                        background: categoryColor(n.category),
-                        color: 'white',
-                        padding: '3px 10px', borderRadius: '12px',
-                        fontSize: '11px', fontWeight: '700',
-                        letterSpacing: '0.5px', textTransform: 'uppercase'
-                      }}>
-                        {categoryIcon(n.category)} {n.category}
-                      </span>
-                      {n.created_at && (
-                        <small style={{ color: '#66788a' }}>
-                          {new Date(n.created_at).toLocaleDateString()}
-                        </small>
-                      )}
-                    </div>
-                    <h3 style={{ margin: '0 0 10px', color: '#102a43', fontSize: '18px', lineHeight: '1.4' }}>
-                      {n.title}
-                    </h3>
-                    <p style={{ color: '#555', fontSize: '14px', lineHeight: '1.6', margin: 0, flex: 1 }}>
-                      {n.content}
-                    </p>
-                    {n.file_url && (
-                      <a href={n.file_url} target="_blank" rel="noreferrer"
-                        style={{
-                          display: 'inline-block', marginTop: '10px',
-                          color: '#1769aa', fontWeight: '600',
-                          fontSize: '13px', textDecoration: 'none'
-                        }}>
-                        📎 Download Attachment
-                      </a>
-                    )}
-                    <p style={{ fontSize: '12px', color: '#999', marginTop: '10px', marginBottom: 0 }}>
-                      Posted by {n.uploaded_by}
-                    </p>
+                <p style={{ color: '#444', fontSize: '14px', lineHeight: '1.7', margin: 0 }}>
+                  {n.content}
+                </p>
 
-                    {isStaff && user.id === n.user_id && (
-                      <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
-                        <button
-                          onClick={() => startEdit(n)}
-                          style={{
-                            background: 'white', border: '1px solid #1769aa',
-                            color: '#1769aa', padding: '7px 14px',
-                            borderRadius: '8px', cursor: 'pointer',
-                            fontSize: '12px', fontWeight: '600'
-                          }}
-                        >✏️ Edit</button>
-                        <button
-                          onClick={() => del(n.id)}
-                          style={{
-                            background: 'white', border: '1px solid #dc3545',
-                            color: '#dc3545', padding: '7px 14px',
-                            borderRadius: '8px', cursor: 'pointer',
-                            fontSize: '12px', fontWeight: '600'
-                          }}
-                        >🗑️ Delete</button>
-                      </div>
-                    )}
-                  </div>
-                </article>
-              ))}
-            </div>
-          </div>
-        )}
+                <p style={{ fontSize: '12px', color: '#999', marginTop: '12px' }}>
+                  Posted by {n.uploaded_by}
+                </p>
 
-        {/* ==================== EMPTY STATE ==================== */}
-        {newsItems.length === 0 && (
-          <div style={{
-            textAlign: 'center', padding: '60px 20px',
-            background: 'linear-gradient(135deg, #f8f9fa, #ffffff)',
-            borderRadius: '16px',
-            border: '1px dashed #dbe4ec'
-          }}>
-            <div style={{ fontSize: '56px', marginBottom: '10px' }}>📰</div>
-            <h3 style={{ color: '#102a43', marginTop: 0 }}>No News Yet</h3>
-            <p style={{ color: '#66788a' }}>
-              {isStaff
-                ? 'Click "Create New Post" to add the first post.'
-                : 'Check back soon for updates.'}
-            </p>
-          </div>
-        )}
+                {isStaff && user.id === n.user_id && (
+                  <button className="secondary" onClick={() => del(n.id)}
+                    style={{ marginTop: '10px', color: '#dc3545' }}>
+                    🗑️ Delete
+                  </button>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
 
-      </section>
-    </main>
+    </Page>
   );
 }
 
