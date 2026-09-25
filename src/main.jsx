@@ -1281,38 +1281,48 @@ function Resources({ user, meta }) {
                   <input value={equipForm.name} onChange={e => setEquipForm({ ...equipForm, name: e.target.value })}
                     placeholder="e.g. Polarizing Microscope" style={inputStyle} />
                 </Field>
-                <Field label="Category">
-                  <select value={equipForm.category}
-                    onChange={e => setEquipForm({ ...equipForm, category: e.target.value })}
-                    style={inputStyle}>
-                    <option>Microscope</option>
-                    <option>Rock Cutting Saw</option>
-                    <option>Sieve Set</option>
-                    <option>GPS Receiver</option>
-                    <option>Compass-Clinometer</option>
-                    <option>Hammer & Chisel</option>
-                    <option>Hand Lens</option>
-                    <option>Spectrometer</option>
-                    <option>XRF Analyzer</option>
-                    <option>Oven / Furnace</option>
-                    <option>Balance / Scale</option>
-                    <option>Sample Splitter</option>
-                    <option>Thin Sectioning Kit</option>
-                    <option>Other</option>
-                  </select>
-                </Field>
+                
+                {/* Category row — spans full width when "Other" is selected */}
+<div style={{ gridColumn: equipForm.category === 'Other' ? 'span 2' : 'auto' }}>
+  <div style={{
+    display: 'grid',
+    gridTemplateColumns: equipForm.category === 'Other' ? '1fr 1fr' : '1fr',
+    gap: '12px'
+  }}>
+    <Field label="Category">
+      <select value={equipForm.category}
+        onChange={e => setEquipForm({ ...equipForm, category: e.target.value })}
+        style={inputStyle}>
+        <option>Microscope</option>
+        <option>Rock Cutting Saw</option>
+        <option>Sieve Set</option>
+        <option>GPS Receiver</option>
+        <option>Compass-Clinometer</option>
+        <option>Hammer & Chisel</option>
+        <option>Hand Lens</option>
+        <option>Spectrometer</option>
+        <option>XRF Analyzer</option>
+        <option>Oven / Furnace</option>
+        <option>Balance / Scale</option>
+        <option>Sample Splitter</option>
+        <option>Thin Sectioning Kit</option>
+        <option>Other</option>
+      </select>
+    </Field>
 
-                {equipForm.category === 'Other' && (
-                  <Field label="Enter New Category Name *">
-                    <input value={equipForm.custom_category}
-                      onChange={e => setEquipForm({ ...equipForm, custom_category: e.target.value })}
-                      placeholder="e.g. Seismic Sensor, Core Scanner..."
-                      style={inputStyle} />
-                    <p style={{ fontSize: '11px', color: '#66788a', marginTop: '4px' }}>
-                      Since you chose "Other", please type the category name.
-                    </p>
-                  </Field>
-                )}
+    {equipForm.category === 'Other' && (
+      <Field label="Enter New Category Name *">
+        <input value={equipForm.custom_category}
+          onChange={e => setEquipForm({ ...equipForm, custom_category: e.target.value })}
+          placeholder="e.g. Seismic Sensor, Core Scanner..."
+          style={inputStyle} />
+        <p style={{ fontSize: '11px', color: '#66788a', marginTop: '4px' }}>
+          Since you chose "Other", please type the category name.
+        </p>
+      </Field>
+    )}
+  </div>
+</div>
 
                 <Field label="Model">
                   <input value={equipForm.model} onChange={e => setEquipForm({ ...equipForm, model: e.target.value })}
