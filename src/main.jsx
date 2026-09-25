@@ -3856,7 +3856,7 @@ function HomeVideo({ user, meta }) {
   };
 
   return (
-    <section className="section" style={{ marginTop: '40px' }}>
+    <section className="section" style={{ marginTop: '0', paddingTop: '0' }}>
       <SectionTitle
         kicker="OUR DEPARTMENT IN MOTION"
         title="Department of Geology — Highlights"
