@@ -4,7 +4,8 @@ import {
   BookOpen, Users, FlaskConical, FileText, Search, Menu, X, ChevronRight, ChevronLeft,
   GraduationCap, ShieldCheck, ToggleLeft, ToggleRight, Upload,
   Newspaper, Microscope, Map, LogIn, LogOut, UserRound,
-  Download, PlayCircle, Headphones, Mail, Phone, MapPin, ExternalLink
+  Download, PlayCircle, Headphones, Mail, Phone, MapPin, ExternalLink,
+  Calendar, Briefcase, UserCheck, BookMarked, Crown, ClipboardList, Award
 } from "lucide-react";
 import "./styles.css";
 import { supabase } from './supabaseClient';
@@ -261,14 +262,13 @@ function App(){
   }, [selectedCourse]);
 
   // ============================================
-  // SAVE PROFILE PICTURE — fixed with single upsert
+  // SAVE PROFILE PICTURE
   // ============================================
   const saveProfilePic = async (file) => {
     if (!file || !user) { alert('Please log in first.'); return; }
 
     console.log('[saveProfilePic] Start. User:', user.id, 'File:', file.name, file.size, 'bytes');
 
-    // 1) Upload to Storage
     const res = await uploadToStorage('profiles', file);
     if (!res) {
       alert('Upload failed. Make sure the "profiles" bucket exists and is Public.');
@@ -276,7 +276,6 @@ function App(){
     }
     console.log('[saveProfilePic] Uploaded URL:', res.url);
 
-    // 2) Upsert into DB — single call
     const { error } = await supabase
       .from('profiles')
       .upsert(
@@ -714,6 +713,13 @@ function Stat({icon,n,label}){return <div className="stat"><div className="statI
 function Feature({icon,title,text,onClick}){return <button className="feature" onClick={onClick}><div>{icon}</div><h3>{title}</h3><p>{text}</p><ChevronRight/></button>}
 function SectionTitle({kicker,title,text}){return <div className="sectionTitle"><div className="eyebrow">{kicker}</div><h2>{title}</h2>{text&&<p>{text}</p>}</div>}
 function Students({ navigate }) {
+  const [subPage, setSubPage] = useState(null);
+  const [handbookOpen, setHandbookOpen] = useState(false);
+
+  if (subPage === 'handbook') {
+    return <StudentHandbook onBack={() => setSubPage(null)} />;
+  }
+
   const now = new Date();
   const month = now.getMonth() + 1;
   const day = now.getDate();
@@ -733,6 +739,27 @@ function Students({ navigate }) {
 
   return (
     <Page title="Students" kicker="STUDENT COMMUNITY">
+
+      {/* Student Handbook button */}
+      <div style={{
+        display: 'flex', gap: '12px', marginBottom: '25px', flexWrap: 'wrap'
+      }}>
+        <button
+          onClick={() => setSubPage('handbook')}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: '10px',
+            padding: '14px 24px',
+            background: 'linear-gradient(135deg, #102a43, #1769aa)',
+            color: 'white', border: 'none', borderRadius: '12px',
+            cursor: 'pointer', fontSize: '14px', fontWeight: '700',
+            boxShadow: '0 4px 12px rgba(23,105,170,0.25)'
+          }}
+        >
+          <BookMarked size={20} />
+          Student Handbook
+          <ChevronRight size={16} />
+        </button>
+      </div>
 
       <div className="adminStats" style={{ marginBottom: '30px' }}>
         {YEARS.map(y => (
@@ -833,6 +860,142 @@ function Students({ navigate }) {
   );
 }
 function Page({title,kicker,children}){return <main className="page"><div className="pageHero"><div className="eyebrow">{kicker}</div><h1>{title}</h1></div><section className="section">{children}</section></main>}
+
+/* ============================================
+   STUDENT HANDBOOK
+   ============================================ */
+function StudentHandbook({ onBack }) {
+  const [user, setUser] = useState(null);
+  const [meta, setMeta] = useState(null);
+  const [handbook, setHandbook] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const u = session?.user || null;
+      setUser(u);
+      if (u) {
+        const { data: m } = await supabase.from('user_metadata').select('*').eq('id', u.id).maybeSingle();
+        setMeta(m);
+      }
+      const { data: h } = await supabase.from('student_handbook').select('*').eq('id', 1).maybeSingle();
+      if (h) setHandbook(h);
+    })();
+  }, []);
+
+  const isStaff = meta?.role === 'staff';
+
+  const upload = async (file) => {
+    if (!file || !user) return;
+    if (file.size > 20 * 1024 * 1024) return alert('PDF must be under 20MB.');
+    setBusy(true);
+    const up = await uploadToStorage('documents', file);
+    setBusy(false);
+    if (!up) return alert('Upload failed. Make sure the "documents" bucket exists and is Public.');
+
+    const { data, error } = await supabase
+      .from('student_handbook')
+      .upsert(
+        { id: 1, file_url: up.url, file_name: file.name, uploaded_by: meta?.name, user_id: user.id, updated_at: new Date().toISOString() },
+        { onConflict: 'id' }
+      )
+      .select()
+      .maybeSingle();
+
+    if (error) return alert(error.message);
+    setHandbook(data);
+    alert('✅ Student Handbook uploaded!');
+  };
+
+  const remove = async () => {
+    if (!confirm('Remove the Student Handbook?')) return;
+    await supabase.from('student_handbook').update({ file_url: null, file_name: null }).eq('id', 1);
+    setHandbook(h => ({ ...h, file_url: null, file_name: null }));
+  };
+
+  return (
+    <Page title="Student Handbook" kicker="RULES & GUIDELINES">
+      <button onClick={onBack} className="secondary" style={{ marginBottom: '20px' }}>
+        <ChevronLeft size={16} /> Back to Students
+      </button>
+
+      <div style={{
+        background: 'linear-gradient(135deg, #102a43 0%, #1769aa 100%)',
+        color: 'white', padding: '28px 32px', borderRadius: '16px',
+        marginBottom: '30px', position: 'relative', overflow: 'hidden'
+      }}>
+        <div style={{ position: 'absolute', top: '-30px', right: '-20px', fontSize: '160px', opacity: 0.08, pointerEvents: 'none' }}>📘</div>
+        <p style={{ margin: 0, opacity: 0.8, fontSize: '12px', letterSpacing: '2px', fontWeight: '700' }}>DEPARTMENT OF GEOLOGY</p>
+        <h2 style={{ margin: '8px 0 6px', fontSize: '24px', fontWeight: '700' }}>Student Handbook</h2>
+        <p style={{ margin: 0, opacity: 0.85, fontSize: '14px', maxWidth: '640px', lineHeight: '1.6' }}>
+          Academic rules, regulations, examination policies, code of conduct, and other guidelines for geology students.
+        </p>
+      </div>
+
+      {isStaff && (
+        <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '12px', marginBottom: '25px', border: '1px solid #dbe4ec' }}>
+          <h3 style={{ color: '#102a43', marginTop: 0 }}>📤 Upload Student Handbook (PDF)</h3>
+          <input ref={fileRef} type="file" accept="application/pdf" style={{ display: 'none' }}
+            onChange={e => e.target.files[0] && upload(e.target.files[0])} />
+          <button className="primary" onClick={() => fileRef.current?.click()} disabled={busy} style={{ background: '#28a745' }}>
+            <Upload size={16} /> {busy ? 'Uploading...' : 'Select PDF'}
+          </button>
+          {handbook?.file_url && (
+            <button className="secondary" onClick={remove} style={{ marginLeft: '10px', color: '#dc3545' }}>
+              🗑️ Remove Current
+            </button>
+          )}
+        </div>
+      )}
+
+      {handbook?.file_url ? (
+        <div style={{
+          background: 'white', border: '1px solid #dbe4ec', borderRadius: '14px',
+          padding: '24px', display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap'
+        }}>
+          <div style={{
+            width: '64px', height: '64px', borderRadius: '12px',
+            background: '#eaf4fb', color: '#1769aa',
+            display: 'grid', placeItems: 'center'
+          }}>
+            <BookMarked size={32} />
+          </div>
+          <div style={{ flex: 1, minWidth: '220px' }}>
+            <h3 style={{ margin: '0 0 4px', color: '#102a43' }}>{handbook.file_name || 'Student Handbook.pdf'}</h3>
+            <p style={{ margin: 0, color: '#66788a', fontSize: '13px' }}>
+              Uploaded by {handbook.uploaded_by || 'Staff'}
+              {handbook.updated_at && ` • ${new Date(handbook.updated_at).toLocaleDateString()}`}
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <a href={handbook.file_url} target="_blank" rel="noreferrer" className="primary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none', padding: '10px 18px' }}>
+              <ExternalLink size={15} /> View
+            </a>
+            <a href={handbook.file_url} download className="secondary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none', padding: '10px 18px' }}>
+              <Download size={15} /> Download
+            </a>
+          </div>
+        </div>
+      ) : (
+        <div style={{
+          textAlign: 'center', padding: '60px 30px',
+          background: 'linear-gradient(135deg, #f8f9fa, #ffffff)',
+          borderRadius: '16px', border: '1px dashed #dbe4ec'
+        }}>
+          <div style={{ fontSize: '56px', marginBottom: '10px' }}>📘</div>
+          <h3 style={{ color: '#102a43', margin: '0 0 8px' }}>No Student Handbook Uploaded</h3>
+          <p style={{ color: '#66788a', margin: 0 }}>
+            {isStaff ? 'Upload the handbook PDF above.' : 'Check back later — the department will publish it soon.'}
+          </p>
+        </div>
+      )}
+    </Page>
+  );
+}
 
 function About({ user, meta }) {
   const isStaff = meta?.role === 'staff';
@@ -2484,6 +2647,19 @@ function Contact(){return <Page title="Contact" kicker="GET IN TOUCH"><div><h2>D
 
 function Academics({ navigate, user, meta }) {
   const [showExam, setShowExam] = useState(false);
+  const [subPage, setSubPage] = useState(null); // 'calendar' | 'internship' | 'advising'
+  const isStaff = meta?.role === 'staff';
+
+  if (subPage === 'calendar') {
+    return <AcademicCalendar user={user} meta={meta} onBack={() => setSubPage(null)} />;
+  }
+  if (subPage === 'internship') {
+    return <Internship user={user} meta={meta} onBack={() => setSubPage(null)} />;
+  }
+  if (subPage === 'advising') {
+    return <AcademicAdvising user={user} meta={meta} onBack={() => setSubPage(null)} />;
+  }
+
   return (
     <Page title="Academic Programs" kicker="ACADEMICS">
       <div className="program">
@@ -2497,7 +2673,551 @@ function Academics({ navigate, user, meta }) {
           </div>
         </div>
       </div>
+
+      {/* Academic sub-navigation buttons */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+        gap: '18px',
+        marginTop: '30px'
+      }}>
+        <AcademicTile
+          icon={<Calendar size={32} />}
+          title="Academic Calendar"
+          text="Semester dates, registration, examinations & key deadlines."
+          color="#1769aa"
+          onClick={() => setSubPage('calendar')}
+        />
+        <AcademicTile
+          icon={<Briefcase size={32} />}
+          title="Internship"
+          text="Requirements, placement process, and internship guidelines."
+          color="#28a745"
+          onClick={() => setSubPage('internship')}
+        />
+        <AcademicTile
+          icon={<UserCheck size={32} />}
+          title="Academic Advising"
+          text="Advisors assigned per batch. View your advisor and batch."
+          color="#e1b84b"
+          onClick={() => setSubPage('advising')}
+        />
+      </div>
+
       {showExam && <ExamSystem user={user} meta={meta} />}
+    </Page>
+  );
+}
+
+function AcademicTile({ icon, title, text, color, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        background: 'white',
+        border: '1px solid #dbe4ec',
+        borderRadius: '14px',
+        padding: '24px',
+        textAlign: 'left',
+        cursor: 'pointer',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '10px',
+        position: 'relative',
+        overflow: 'hidden',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+        transition: 'transform 0.15s, box-shadow 0.15s'
+      }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.08)'; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)'; }}
+    >
+      <div style={{
+        position: 'absolute', top: 0, left: 0,
+        width: '4px', height: '100%', background: color
+      }} />
+      <div style={{ color, display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {icon}
+      </div>
+      <h3 style={{ margin: 0, color: '#102a43', fontSize: '18px' }}>{title}</h3>
+      <p style={{ margin: 0, color: '#66788a', fontSize: '13px', lineHeight: '1.5' }}>{text}</p>
+      <span style={{ color, fontSize: '13px', fontWeight: '700', marginTop: '4px' }}>
+        Open <ChevronRight size={14} style={{ verticalAlign: 'middle' }} />
+      </span>
+    </button>
+  );
+}
+
+/* ============================================
+   ACADEMIC CALENDAR
+   ============================================ */
+function AcademicCalendar({ user, meta, onBack }) {
+  const isStaff = meta?.role === 'staff';
+  const [calendar, setCalendar] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('academic_calendar').select('*').eq('id', 1).maybeSingle();
+      if (data) setCalendar(data);
+    })();
+  }, []);
+
+  const upload = async (file) => {
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) return alert('PDF must be under 20MB.');
+    setBusy(true);
+    const up = await uploadToStorage('documents', file);
+    setBusy(false);
+    if (!up) return alert('Upload failed. Make sure the "documents" bucket exists and is Public.');
+
+    const { data, error } = await supabase
+      .from('academic_calendar')
+      .upsert(
+        { id: 1, file_url: up.url, file_name: file.name, uploaded_by: meta?.name, user_id: user.id, updated_at: new Date().toISOString() },
+        { onConflict: 'id' }
+      )
+      .select()
+      .maybeSingle();
+
+    if (error) return alert(error.message);
+    setCalendar(data);
+    alert('✅ Academic Calendar uploaded!');
+  };
+
+  const remove = async () => {
+    if (!confirm('Remove the Academic Calendar?')) return;
+    await supabase.from('academic_calendar').update({ file_url: null, file_name: null }).eq('id', 1);
+    setCalendar(c => ({ ...c, file_url: null, file_name: null }));
+  };
+
+  return (
+    <Page title="Academic Calendar" kicker="KEY DATES">
+      <button onClick={onBack} className="secondary" style={{ marginBottom: '20px' }}>
+        <ChevronLeft size={16} /> Back to Academics
+      </button>
+
+      <div style={{
+        background: 'linear-gradient(135deg, #102a43 0%, #1769aa 100%)',
+        color: 'white', padding: '28px 32px', borderRadius: '16px',
+        marginBottom: '30px', position: 'relative', overflow: 'hidden'
+      }}>
+        <div style={{ position: 'absolute', top: '-30px', right: '-20px', fontSize: '160px', opacity: 0.08, pointerEvents: 'none' }}>📅</div>
+        <p style={{ margin: 0, opacity: 0.8, fontSize: '12px', letterSpacing: '2px', fontWeight: '700' }}>DEPARTMENT OF GEOLOGY</p>
+        <h2 style={{ margin: '8px 0 6px', fontSize: '24px', fontWeight: '700' }}>Academic Calendar</h2>
+        <p style={{ margin: 0, opacity: 0.85, fontSize: '14px', maxWidth: '620px', lineHeight: '1.6' }}>
+          Semester dates, registration periods, examination schedules, and other key academic deadlines.
+        </p>
+      </div>
+
+      {isStaff && (
+        <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '12px', marginBottom: '25px', border: '1px solid #dbe4ec' }}>
+          <h3 style={{ color: '#102a43', marginTop: 0 }}>📤 Upload Academic Calendar (PDF)</h3>
+          <input ref={fileRef} type="file" accept="application/pdf" style={{ display: 'none' }}
+            onChange={e => e.target.files[0] && upload(e.target.files[0])} />
+          <button className="primary" onClick={() => fileRef.current?.click()} disabled={busy} style={{ background: '#28a745' }}>
+            <Upload size={16} /> {busy ? 'Uploading...' : 'Select PDF'}
+          </button>
+          {calendar?.file_url && (
+            <button className="secondary" onClick={remove} style={{ marginLeft: '10px', color: '#dc3545' }}>
+              🗑️ Remove Current
+            </button>
+          )}
+        </div>
+      )}
+
+      {calendar?.file_url ? (
+        <div style={{
+          background: 'white', border: '1px solid #dbe4ec', borderRadius: '14px',
+          padding: '24px', display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap'
+        }}>
+          <div style={{
+            width: '64px', height: '64px', borderRadius: '12px',
+            background: '#eaf4fb', color: '#1769aa',
+            display: 'grid', placeItems: 'center'
+          }}>
+            <FileText size={32} />
+          </div>
+          <div style={{ flex: 1, minWidth: '220px' }}>
+            <h3 style={{ margin: '0 0 4px', color: '#102a43' }}>{calendar.file_name || 'Academic Calendar.pdf'}</h3>
+            <p style={{ margin: 0, color: '#66788a', fontSize: '13px' }}>
+              Uploaded by {calendar.uploaded_by || 'Staff'}
+              {calendar.updated_at && ` • ${new Date(calendar.updated_at).toLocaleDateString()}`}
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <a href={calendar.file_url} target="_blank" rel="noreferrer" className="primary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none', padding: '10px 18px' }}>
+              <ExternalLink size={15} /> View
+            </a>
+            <a href={calendar.file_url} download className="secondary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none', padding: '10px 18px' }}>
+              <Download size={15} /> Download
+            </a>
+          </div>
+        </div>
+      ) : (
+        <div style={{
+          textAlign: 'center', padding: '60px 30px',
+          background: 'linear-gradient(135deg, #f8f9fa, #ffffff)',
+          borderRadius: '16px', border: '1px dashed #dbe4ec'
+        }}>
+          <div style={{ fontSize: '56px', marginBottom: '10px' }}>📅</div>
+          <h3 style={{ color: '#102a43', margin: '0 0 8px' }}>No Academic Calendar Uploaded</h3>
+          <p style={{ color: '#66788a', margin: 0 }}>
+            {isStaff ? 'Upload a PDF above to publish the calendar.' : 'Check back later — the department will publish it soon.'}
+          </p>
+        </div>
+      )}
+    </Page>
+  );
+}
+
+/* ============================================
+   INTERNSHIP
+   ============================================ */
+function Internship({ user, meta, onBack }) {
+  const isStaff = meta?.role === 'staff';
+  const [internship, setInternship] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('internship').select('*').eq('id', 1).maybeSingle();
+      if (data) setInternship(data);
+    })();
+  }, []);
+
+  const upload = async (file) => {
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) return alert('PDF must be under 20MB.');
+    setBusy(true);
+    const up = await uploadToStorage('documents', file);
+    setBusy(false);
+    if (!up) return alert('Upload failed. Make sure the "documents" bucket exists and is Public.');
+
+    const { data, error } = await supabase
+      .from('internship')
+      .upsert(
+        { id: 1, file_url: up.url, file_name: file.name, uploaded_by: meta?.name, user_id: user.id, updated_at: new Date().toISOString() },
+        { onConflict: 'id' }
+      )
+      .select()
+      .maybeSingle();
+
+    if (error) return alert(error.message);
+    setInternship(data);
+    alert('✅ Internship document uploaded!');
+  };
+
+  const remove = async () => {
+    if (!confirm('Remove the Internship document?')) return;
+    await supabase.from('internship').update({ file_url: null, file_name: null }).eq('id', 1);
+    setInternship(c => ({ ...c, file_url: null, file_name: null }));
+  };
+
+  return (
+    <Page title="Internship" kicker="FIELD TRAINING">
+      <button onClick={onBack} className="secondary" style={{ marginBottom: '20px' }}>
+        <ChevronLeft size={16} /> Back to Academics
+      </button>
+
+      <div style={{
+        background: 'linear-gradient(135deg, #14532d 0%, #28a745 100%)',
+        color: 'white', padding: '28px 32px', borderRadius: '16px',
+        marginBottom: '30px', position: 'relative', overflow: 'hidden'
+      }}>
+        <div style={{ position: 'absolute', top: '-30px', right: '-20px', fontSize: '160px', opacity: 0.08, pointerEvents: 'none' }}>💼</div>
+        <p style={{ margin: 0, opacity: 0.8, fontSize: '12px', letterSpacing: '2px', fontWeight: '700' }}>DEPARTMENT OF GEOLOGY</p>
+        <h2 style={{ margin: '8px 0 6px', fontSize: '24px', fontWeight: '700' }}>Internship Program</h2>
+        <p style={{ margin: 0, opacity: 0.85, fontSize: '14px', maxWidth: '620px', lineHeight: '1.6' }}>
+          Internship requirements, placement process, host organizations, and evaluation guidelines for BSc Geology students.
+        </p>
+      </div>
+
+      {isStaff && (
+        <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '12px', marginBottom: '25px', border: '1px solid #dbe4ec' }}>
+          <h3 style={{ color: '#102a43', marginTop: 0 }}>📤 Upload Internship Guidelines (PDF)</h3>
+          <input ref={fileRef} type="file" accept="application/pdf" style={{ display: 'none' }}
+            onChange={e => e.target.files[0] && upload(e.target.files[0])} />
+          <button className="primary" onClick={() => fileRef.current?.click()} disabled={busy} style={{ background: '#28a745' }}>
+            <Upload size={16} /> {busy ? 'Uploading...' : 'Select PDF'}
+          </button>
+          {internship?.file_url && (
+            <button className="secondary" onClick={remove} style={{ marginLeft: '10px', color: '#dc3545' }}>
+              🗑️ Remove Current
+            </button>
+          )}
+        </div>
+      )}
+
+      {internship?.file_url ? (
+        <div style={{
+          background: 'white', border: '1px solid #dbe4ec', borderRadius: '14px',
+          padding: '24px', display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap'
+        }}>
+          <div style={{
+            width: '64px', height: '64px', borderRadius: '12px',
+            background: '#d4edda', color: '#155724',
+            display: 'grid', placeItems: 'center'
+          }}>
+            <FileText size={32} />
+          </div>
+          <div style={{ flex: 1, minWidth: '220px' }}>
+            <h3 style={{ margin: '0 0 4px', color: '#102a43' }}>{internship.file_name || 'Internship Guidelines.pdf'}</h3>
+            <p style={{ margin: 0, color: '#66788a', fontSize: '13px' }}>
+              Uploaded by {internship.uploaded_by || 'Staff'}
+              {internship.updated_at && ` • ${new Date(internship.updated_at).toLocaleDateString()}`}
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <a href={internship.file_url} target="_blank" rel="noreferrer" className="primary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none', padding: '10px 18px' }}>
+              <ExternalLink size={15} /> View
+            </a>
+            <a href={internship.file_url} download className="secondary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none', padding: '10px 18px' }}>
+              <Download size={15} /> Download
+            </a>
+          </div>
+        </div>
+      ) : (
+        <div style={{
+          textAlign: 'center', padding: '60px 30px',
+          background: 'linear-gradient(135deg, #f8f9fa, #ffffff)',
+          borderRadius: '16px', border: '1px dashed #dbe4ec'
+        }}>
+          <div style={{ fontSize: '56px', marginBottom: '10px' }}>💼</div>
+          <h3 style={{ color: '#102a43', margin: '0 0 8px' }}>No Internship Document Uploaded</h3>
+          <p style={{ color: '#66788a', margin: 0 }}>
+            {isStaff ? 'Upload the internship guidelines PDF above.' : 'Check back later for the internship guidelines.'}
+          </p>
+        </div>
+      )}
+    </Page>
+  );
+}
+
+/* ============================================
+   ACADEMIC ADVISING
+   ============================================ */
+function AcademicAdvising({ user, meta, onBack }) {
+  const isStaff = meta?.role === 'staff';
+  const [advisors, setAdvisors] = useState({});
+  const [staffList, setStaffList] = useState([]);
+  const [editingYear, setEditingYear] = useState(null);
+  const [draft, setDraft] = useState({ advisor_name: '', advisor_email: '', advisor_office: '' });
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('academic_advisors').select('*');
+      const map = {};
+      (data || []).forEach(r => { map[r.year] = r; });
+      setAdvisors(map);
+
+      const { data: staffData } = await supabase
+        .from('user_metadata')
+        .select('id, name, email, rank, spec')
+        .eq('role', 'staff')
+        .order('name');
+      setStaffList(staffData || []);
+    })();
+  }, []);
+
+  const startEdit = (year) => {
+    const cur = advisors[year] || {};
+    setEditingYear(year);
+    setDraft({
+      advisor_name: cur.advisor_name || '',
+      advisor_email: cur.advisor_email || '',
+      advisor_office: cur.advisor_office || '',
+    });
+  };
+
+  const save = async () => {
+    if (!draft.advisor_name.trim()) return alert('Please choose or enter an advisor name.');
+    setBusy(true);
+    const { data, error } = await supabase
+      .from('academic_advisors')
+      .upsert(
+        {
+          year: editingYear,
+          advisor_name: draft.advisor_name.trim(),
+          advisor_email: draft.advisor_email.trim(),
+          advisor_office: draft.advisor_office.trim(),
+          updated_by: meta?.name,
+          user_id: user.id,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'year' }
+      )
+      .select()
+      .maybeSingle();
+    setBusy(false);
+    if (error) return alert(error.message);
+    setAdvisors(prev => ({ ...prev, [editingYear]: data }));
+    setEditingYear(null);
+    alert(`✅ Advisor assigned to Year ${editingYear}.`);
+  };
+
+  const remove = async (year) => {
+    if (!confirm(`Remove advisor for Year ${year}?`)) return;
+    await supabase.from('academic_advisors').delete().eq('year', year);
+    setAdvisors(prev => {
+      const n = { ...prev }; delete n[year]; return n;
+    });
+  };
+
+  const YEAR_LABELS = { 1: 'Year 1 (Freshman)', 2: 'Year 2', 3: 'Year 3', 4: 'Year 4 (Senior)' };
+
+  return (
+    <Page title="Academic Advising" kicker="STUDENT SUPPORT">
+      <button onClick={onBack} className="secondary" style={{ marginBottom: '20px' }}>
+        <ChevronLeft size={16} /> Back to Academics
+      </button>
+
+      <div style={{
+        background: 'linear-gradient(135deg, #7c5e10 0%, #e1b84b 100%)',
+        color: 'white', padding: '28px 32px', borderRadius: '16px',
+        marginBottom: '30px', position: 'relative', overflow: 'hidden'
+      }}>
+        <div style={{ position: 'absolute', top: '-30px', right: '-20px', fontSize: '160px', opacity: 0.1, pointerEvents: 'none' }}>👥</div>
+        <p style={{ margin: 0, opacity: 0.85, fontSize: '12px', letterSpacing: '2px', fontWeight: '700' }}>DEPARTMENT OF GEOLOGY</p>
+        <h2 style={{ margin: '8px 0 6px', fontSize: '24px', fontWeight: '700' }}>Academic Advising</h2>
+        <p style={{ margin: 0, opacity: 0.9, fontSize: '14px', maxWidth: '640px', lineHeight: '1.6' }}>
+          One academic advisor is assigned per batch (year). Students should consult their advisor for course selection,
+          academic planning, and career guidance.
+        </p>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+        {[1, 2, 3, 4].map(y => {
+          const a = advisors[y];
+          const isEditing = editingYear === y;
+          return (
+            <article key={y} style={{
+              background: 'white', border: '1px solid #dbe4ec',
+              borderRadius: '14px', padding: '22px',
+              position: 'relative', overflow: 'hidden'
+            }}>
+              <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: '#e1b84b' }} />
+              <div style={{
+                display: 'inline-block', background: '#fff7e0', color: '#7c5e10',
+                padding: '3px 12px', borderRadius: '12px',
+                fontSize: '11px', fontWeight: '700', letterSpacing: '0.5px',
+                marginBottom: '12px'
+              }}>
+                {YEAR_LABELS[y]}
+              </div>
+
+              {isEditing ? (
+                <>
+                  <h3 style={{ margin: '0 0 12px', color: '#102a43', fontSize: '16px' }}>Assign Advisor</h3>
+
+                  {staffList.length > 0 && (
+                    <div style={{ marginBottom: '10px' }}>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#66788a', marginBottom: '4px' }}>
+                        Pick from staff (or type below)
+                      </label>
+                      <select
+                        value=""
+                        onChange={e => {
+                          const s = staffList.find(x => x.id === e.target.value);
+                          if (s) setDraft({
+                            advisor_name: s.name || '',
+                            advisor_email: s.email || '',
+                            advisor_office: draft.advisor_office
+                          });
+                        }}
+                        style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc', marginBottom: '8px' }}
+                      >
+                        <option value="">— Select a staff member —</option>
+                        {staffList.map(s => (
+                          <option key={s.id} value={s.id}>{s.name} {s.rank ? `(${s.rank})` : ''}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <input type="text" value={draft.advisor_name}
+                    onChange={e => setDraft({ ...draft, advisor_name: e.target.value })}
+                    placeholder="Advisor name *"
+                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc', marginBottom: '6px' }} />
+                  <input type="email" value={draft.advisor_email}
+                    onChange={e => setDraft({ ...draft, advisor_email: e.target.value })}
+                    placeholder="Advisor email"
+                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc', marginBottom: '6px' }} />
+                  <input type="text" value={draft.advisor_office}
+                    onChange={e => setDraft({ ...draft, advisor_office: e.target.value })}
+                    placeholder="Office (e.g. Block 3, Room 12)"
+                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc', marginBottom: '10px' }} />
+
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button className="primary" onClick={save} disabled={busy} style={{ background: '#28a745' }}>
+                      {busy ? 'Saving...' : '✅ Save'}
+                    </button>
+                    <button className="secondary" onClick={() => setEditingYear(null)}>Cancel</button>
+                  </div>
+                </>
+              ) : a ? (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+                    <div style={{
+                      width: '46px', height: '46px', borderRadius: '50%',
+                      background: 'linear-gradient(135deg, #7c5e10, #e1b84b)',
+                      color: 'white', display: 'grid', placeItems: 'center',
+                      fontSize: '18px', fontWeight: 'bold'
+                    }}>
+                      {(a.advisor_name || '?').charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, color: '#102a43', fontSize: '16px' }}>{a.advisor_name}</h3>
+                      <p style={{ margin: 0, fontSize: '12px', color: '#66788a' }}>Academic Advisor</p>
+                    </div>
+                  </div>
+                  {a.advisor_email && <p style={{ margin: '4px 0', color: '#444', fontSize: '13px' }}>📧 {a.advisor_email}</p>}
+                  {a.advisor_office && <p style={{ margin: '4px 0', color: '#444', fontSize: '13px' }}>🏢 {a.advisor_office}</p>}
+
+                  {isStaff && (
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+                      <button className="secondary" onClick={() => startEdit(y)}
+                        style={{ color: '#1769aa', borderColor: '#1769aa', padding: '6px 12px', fontSize: '12px' }}>
+                        ✏️ Edit
+                      </button>
+                      <button className="secondary" onClick={() => remove(y)}
+                        style={{ color: '#dc3545', padding: '6px 12px', fontSize: '12px' }}>
+                        🗑️ Remove
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p style={{ color: '#999', fontStyle: 'italic', margin: '0 0 12px', fontSize: '13px' }}>
+                    No advisor assigned yet.
+                  </p>
+                  {isStaff && (
+                    <button className="primary" onClick={() => startEdit(y)} style={{ background: '#1769aa' }}>
+                      + Assign Advisor
+                    </button>
+                  )}
+                </>
+              )}
+            </article>
+          );
+        })}
+      </div>
+
+      <div style={{
+        marginTop: '30px', padding: '20px',
+        background: '#fff7e0', borderLeft: '4px solid #e1b84b',
+        borderRadius: '8px', color: '#5a4308', fontSize: '14px', lineHeight: '1.6'
+      }}>
+        <strong>📌 Note:</strong> Each batch (year) has one dedicated academic advisor.
+        Students are encouraged to meet their advisor at least once per semester to review progress.
+      </div>
     </Page>
   );
 }
@@ -3198,8 +3918,15 @@ function CourseModal({ course, close, uploadMaterial, materials, toggleLock, use
 }
 
 function Staff({ profilePic, saveProfilePic, removeProfilePic, user, meta }) {
+  const [subPage, setSubPage] = useState(null);
+
+  if (subPage === 'leadership') {
+    return <DepartmentLeadership user={user} meta={meta} onBack={() => setSubPage(null)} />;
+  }
+
   const isStaff = meta?.role === 'staff';
   const [allStaff, setAllStaff] = useState([]);
+  const [photoMap, setPhotoMap] = useState({});
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [editing, setEditing] = useState(false);
   const [details, setDetails] = useState({
@@ -3215,6 +3942,21 @@ function Staff({ profilePic, saveProfilePic, removeProfilePic, user, meta }) {
         .eq('role', 'staff')
         .order('name');
       if (data) setAllStaff(data);
+    })();
+  }, []);
+
+  // Load all staff profile photos into a user_id → url map
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('user_id, profile_pic');
+      if (error) { console.error('Load photos error:', error); return; }
+      const map = {};
+      (data || []).forEach(row => {
+        if (row.profile_pic) map[row.user_id] = row.profile_pic;
+      });
+      setPhotoMap(map);
     })();
   }, []);
 
@@ -3276,6 +4018,25 @@ function Staff({ profilePic, saveProfilePic, removeProfilePic, user, meta }) {
 
   return (
     <Page title="Academic Staff" kicker="OUR PEOPLE">
+
+      {/* Department Leadership button */}
+      <div style={{ marginBottom: '25px' }}>
+        <button
+          onClick={() => setSubPage('leadership')}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: '10px',
+            padding: '14px 24px',
+            background: 'linear-gradient(135deg, #7c5e10, #e1b84b)',
+            color: 'white', border: 'none', borderRadius: '12px',
+            cursor: 'pointer', fontSize: '14px', fontWeight: '700',
+            boxShadow: '0 4px 12px rgba(225,184,75,0.35)'
+          }}
+        >
+          <Crown size={20} />
+          Department Leadership
+          <ChevronRight size={16} />
+        </button>
+      </div>
 
       {isStaff && (
         <div style={{
@@ -3443,15 +4204,28 @@ function Staff({ profilePic, saveProfilePic, removeProfilePic, user, meta }) {
               width: '74px',
               height: '74px',
               borderRadius: '50%',
-              background: 'linear-gradient(135deg, #1a3a5c, #1769aa)',
+              background: photoMap[s.id] ? 'transparent' : 'linear-gradient(135deg, #1a3a5c, #1769aa)',
               color: 'white',
               display: 'grid',
               placeItems: 'center',
               margin: '0 auto 12px',
               fontSize: '28px',
-              fontWeight: 'bold'
+              fontWeight: 'bold',
+              overflow: 'hidden'
             }}>
-              {s.name ? s.name.charAt(0) : '?'}
+              {photoMap[s.id] ? (
+                <img
+                  src={photoMap[s.id]}
+                  alt={s.name}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover'
+                  }}
+                />
+              ) : (
+                s.name ? s.name.charAt(0) : '?'
+              )}
             </div>
             <h3 style={{ margin: '0 0 4px', color: '#102a43', fontSize: '16px' }}>{s.name}</h3>
             <b style={{ color: '#1769aa', fontSize: '13px' }}>{s.rank}</b>
@@ -3480,6 +4254,344 @@ function Staff({ profilePic, saveProfilePic, removeProfilePic, user, meta }) {
           staffMember={selectedStaff}
           onClose={() => setSelectedStaff(null)}
         />
+      )}
+    </Page>
+  );
+}
+
+/* ============================================
+   DEPARTMENT LEADERSHIP
+   ============================================ */
+const ACADEMIC_COORDINATOR_DUTIES = [
+  "Academic Program Coordination",
+  "Course Scheduling",
+  "Student Academic Advising",
+  "Curriculum Coordination",
+  "Teaching and Learning Coordination",
+  "Instructor and Course Assignment",
+  "Academic Performance Monitoring",
+  "Examination Coordination",
+  "Student Registration Support",
+  "Internship & Field Training Coordination",
+  "Academic Records & Reports",
+  "Communication with Students and Instructors",
+  "Academic Calendar & Announcements",
+  "Quality Assurance and Continuous Improvement"
+];
+
+function DepartmentLeadership({ user, meta, onBack }) {
+  const isStaff = meta?.role === 'staff';
+  const [leaders, setLeaders] = useState([]);
+  const [photoMap, setPhotoMap] = useState({});
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({
+    role_title: 'Head of Department',
+    full_name: '',
+    email: '',
+    phone: '',
+    office: '',
+    bio: '',
+    photoFile: null,
+  });
+
+  const ROLE_OPTIONS = [
+    'Head of Department',
+    'Academic Coordinator',
+    'Research Coordinator',
+    'Internship Coordinator',
+    'Quality Assurance Coordinator',
+    'Community Service Coordinator',
+    'Department Secretary',
+    'Other'
+  ];
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('department_leadership')
+        .select('*')
+        .order('display_order', { ascending: true })
+        .order('created_at', { ascending: true });
+      setLeaders(data || []);
+
+      const { data: photos } = await supabase.from('profiles').select('user_id, profile_pic');
+      const map = {};
+      (photos || []).forEach(p => { if (p.profile_pic) map[p.user_id] = p.profile_pic; });
+      setPhotoMap(map);
+    })();
+  }, []);
+
+  const resetForm = () => {
+    setForm({
+      role_title: 'Head of Department',
+      full_name: '', email: '', phone: '', office: '', bio: '',
+      photoFile: null,
+    });
+    setEditingId(null);
+    setShowForm(false);
+  };
+
+  const submit = async () => {
+    if (!form.full_name.trim()) return alert('Full name required.');
+    setBusy(true);
+
+    let photoUrl = null;
+    if (form.photoFile) {
+      const up = await uploadToStorage('leadership', form.photoFile);
+      if (up) photoUrl = up.url;
+    }
+
+    const payload = {
+      role_title: form.role_title,
+      full_name: form.full_name.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      office: form.office.trim(),
+      bio: form.bio.trim(),
+      display_order: ROLE_OPTIONS.indexOf(form.role_title),
+      updated_by: meta?.name,
+      user_id: user.id,
+    };
+    if (photoUrl) payload.photo_url = photoUrl;
+
+    if (editingId) {
+      const { data, error } = await supabase
+        .from('department_leadership')
+        .update(payload)
+        .eq('id', editingId)
+        .select()
+        .maybeSingle();
+      setBusy(false);
+      if (error) return alert(error.message);
+      setLeaders(prev => prev.map(l => l.id === editingId ? data : l));
+      alert('✅ Updated!');
+    } else {
+      const { data, error } = await supabase
+        .from('department_leadership')
+        .insert([payload])
+        .select()
+        .maybeSingle();
+      setBusy(false);
+      if (error) return alert(error.message);
+      setLeaders(prev => [...prev, data]);
+      alert('✅ Added!');
+    }
+    resetForm();
+  };
+
+  const startEdit = (l) => {
+    setEditingId(l.id);
+    setForm({
+      role_title: l.role_title || 'Head of Department',
+      full_name: l.full_name || '',
+      email: l.email || '',
+      phone: l.phone || '',
+      office: l.office || '',
+      bio: l.bio || '',
+      photoFile: null,
+    });
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const del = async (id) => {
+    if (!confirm('Remove this leadership entry?')) return;
+    await supabase.from('department_leadership').delete().eq('id', id);
+    setLeaders(prev => prev.filter(l => l.id !== id));
+  };
+
+  return (
+    <Page title="Department Leadership" kicker="OUR LEADERS">
+      <button onClick={onBack} className="secondary" style={{ marginBottom: '20px' }}>
+        <ChevronLeft size={16} /> Back to Staff
+      </button>
+
+      <div style={{
+        background: 'linear-gradient(135deg, #7c5e10 0%, #e1b84b 100%)',
+        color: 'white', padding: '28px 32px', borderRadius: '16px',
+        marginBottom: '30px', position: 'relative', overflow: 'hidden'
+      }}>
+        <div style={{ position: 'absolute', top: '-30px', right: '-20px', fontSize: '160px', opacity: 0.1, pointerEvents: 'none' }}>👑</div>
+        <p style={{ margin: 0, opacity: 0.85, fontSize: '12px', letterSpacing: '2px', fontWeight: '700' }}>DEPARTMENT OF GEOLOGY</p>
+        <h2 style={{ margin: '8px 0 6px', fontSize: '24px', fontWeight: '700' }}>Department Leadership</h2>
+        <p style={{ margin: 0, opacity: 0.9, fontSize: '14px', maxWidth: '640px', lineHeight: '1.6' }}>
+          Head of Department and coordinators who lead academic, research, and administrative activities.
+        </p>
+      </div>
+
+      {isStaff && (
+        <div style={{ marginBottom: '20px', textAlign: 'right' }}>
+          <button className="primary" onClick={() => { if (editingId) resetForm(); setShowForm(!showForm); }}
+            style={{ background: '#28a745' }}>
+            {showForm ? '📕 Close Form' : '➕ Add Leadership'}
+          </button>
+        </div>
+      )}
+
+      {isStaff && showForm && (
+        <div style={{ background: '#f8f9fa', padding: '24px', borderRadius: '14px', marginBottom: '25px', border: '1px solid #dbe4ec' }}>
+          <h3 style={{ marginTop: 0, color: '#102a43' }}>{editingId ? '✏️ Edit' : '📝 Add'} Leadership</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+            <div>
+              <label style={labelStyle}>Role *</label>
+              <select value={form.role_title} onChange={e => setForm({ ...form, role_title: e.target.value })} style={inputStyle}>
+                {ROLE_OPTIONS.map(r => <option key={r}>{r}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Full Name *</label>
+              <input value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} placeholder="e.g. Dr. Abraham Nigusie" style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Email</label>
+              <input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="name@dmu.edu.et" style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Phone</label>
+              <input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+251..." style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Office</label>
+              <input value={form.office} onChange={e => setForm({ ...form, office: e.target.value })} placeholder="e.g. Block 3, Room 205" style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Photo</label>
+              <input type="file" accept="image/*" onChange={e => setForm({ ...form, photoFile: e.target.files[0] })} style={inputStyle} />
+            </div>
+            <div style={{ gridColumn: 'span 2' }}>
+              <label style={labelStyle}>Bio / Short Message</label>
+              <textarea value={form.bio} onChange={e => setForm({ ...form, bio: e.target.value })} rows="3"
+                placeholder="Short welcome message or bio..." style={inputStyle} />
+            </div>
+          </div>
+
+          {form.role_title === 'Academic Coordinator' && (
+            <div style={{
+              marginTop: '16px', padding: '14px',
+              background: '#fff7e0', borderLeft: '4px solid #e1b84b',
+              borderRadius: '8px', fontSize: '13px', color: '#5a4308'
+            }}>
+              <strong>ℹ️ This role will automatically display 14 duties:</strong>
+              <ul style={{ margin: '8px 0 0', paddingLeft: '20px', lineHeight: '1.7' }}>
+                {ACADEMIC_COORDINATOR_DUTIES.map((d, i) => <li key={i}>{d}</li>)}
+              </ul>
+            </div>
+          )}
+
+          <div style={{ marginTop: '18px', display: 'flex', gap: '10px' }}>
+            <button className="primary" onClick={submit} disabled={busy} style={{ background: '#28a745' }}>
+              {busy ? 'Saving...' : editingId ? '✅ Update' : '✅ Add'}
+            </button>
+            <button className="secondary" onClick={resetForm}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {leaders.length === 0 ? (
+        <div style={{
+          textAlign: 'center', padding: '60px 30px',
+          background: 'linear-gradient(135deg, #f8f9fa, #ffffff)',
+          borderRadius: '16px', border: '1px dashed #dbe4ec'
+        }}>
+          <div style={{ fontSize: '56px', marginBottom: '10px' }}>👑</div>
+          <h3 style={{ color: '#102a43', margin: '0 0 8px' }}>No Leadership Added Yet</h3>
+          <p style={{ color: '#66788a', margin: 0 }}>
+            {isStaff ? 'Click "Add Leadership" to add the Head of Department and coordinators.' : 'Check back later.'}
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gap: '22px' }}>
+          {leaders.map(l => {
+            const isCoord = l.role_title === 'Academic Coordinator';
+            const photo = l.photo_url || (l.user_id && photoMap[l.user_id]);
+            return (
+              <article key={l.id} style={{
+                background: 'white', border: '1px solid #dbe4ec',
+                borderRadius: '14px', overflow: 'hidden',
+                display: 'flex', flexWrap: 'wrap',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+              }}>
+                <div style={{
+                  flex: '0 0 260px', minWidth: '260px', minHeight: '240px',
+                  background: photo ? '#f0f4f8' : 'linear-gradient(135deg, #7c5e10, #e1b84b)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  overflow: 'hidden'
+                }}>
+                  {photo ? (
+                    <img src={photo} alt={l.full_name}
+                      style={{ width: '100%', height: '100%', minHeight: '240px', objectFit: 'cover' }} />
+                  ) : (
+                    <span style={{ fontSize: '72px', color: 'white', fontWeight: 'bold' }}>
+                      {(l.full_name || '?').charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ flex: 1, minWidth: '280px', padding: '24px', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '8px',
+                    background: '#fff7e0', color: '#7c5e10',
+                    padding: '4px 12px', borderRadius: '14px',
+                    fontSize: '11px', fontWeight: '700', letterSpacing: '0.5px',
+                    marginBottom: '10px', alignSelf: 'flex-start'
+                  }}>
+                    <Crown size={13} /> {l.role_title}
+                  </div>
+
+                  <h3 style={{ margin: '0 0 8px', color: '#102a43', fontSize: '22px' }}>{l.full_name}</h3>
+
+                  {l.email && <p style={cardMetaStyle}>📧 {l.email}</p>}
+                  {l.phone && <p style={cardMetaStyle}>📞 {l.phone}</p>}
+                  {l.office && <p style={cardMetaStyle}>🏢 {l.office}</p>}
+
+                  {l.bio && (
+                    <p style={{ margin: '12px 0 0', color: '#444', fontSize: '14px', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>
+                      {l.bio}
+                    </p>
+                  )}
+
+                  {isCoord && (
+                    <div style={{
+                      marginTop: '18px', padding: '16px',
+                      background: '#f8f9fa', borderRadius: '10px',
+                      border: '1px solid #dbe4ec'
+                    }}>
+                      <h4 style={{ margin: '0 0 10px', color: '#102a43', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <ClipboardList size={18} /> Academic Coordinator — Duties & Responsibilities
+                      </h4>
+                      <ul style={{
+                        listStyle: 'none', padding: 0, margin: 0,
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                        gap: '6px 16px'
+                      }}>
+                        {ACADEMIC_COORDINATOR_DUTIES.map((d, i) => (
+                          <li key={i} style={{
+                            color: '#333', fontSize: '13px',
+                            display: 'flex', alignItems: 'flex-start', gap: '6px'
+                          }}>
+                            <span style={{ color: '#28a745', fontWeight: 'bold' }}>✓</span>
+                            {d}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {isStaff && user.id === l.user_id && (
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                      <button className="secondary" onClick={() => startEdit(l)}
+                        style={{ color: '#1769aa', borderColor: '#1769aa' }}>✏️ Edit</button>
+                      <button className="secondary" onClick={() => del(l.id)}
+                        style={{ color: '#dc3545' }}>🗑️ Delete</button>
+                    </div>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </div>
       )}
     </Page>
   );
