@@ -242,7 +242,12 @@ function App(){
   useEffect(() => {
     if (!user) { setProfilePic(null); return; }
     (async () => {
-      const { data } = await supabase.from('profiles').select('profile_pic').eq('user_id', user.id).maybeSingle();
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('profile_pic')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (error) { console.error('Load profile pic error:', error); return; }
       setProfilePic(data?.profile_pic || null);
     })();
   }, [user]);
@@ -255,36 +260,55 @@ function App(){
     })();
   }, [selectedCourse]);
 
+  // ============================================
+  // SAVE PROFILE PICTURE — fixed with single upsert
+  // ============================================
   const saveProfilePic = async (file) => {
-    if (!file || !user) return;
+    if (!file || !user) { alert('Please log in first.'); return; }
+
+    console.log('[saveProfilePic] Start. User:', user.id, 'File:', file.name, file.size, 'bytes');
+
+    // 1) Upload to Storage
     const res = await uploadToStorage('profiles', file);
-    if (!res) { alert('Upload failed. Check the bucket "profiles" exists and is public.'); return; }
+    if (!res) {
+      alert('Upload failed. Make sure the "profiles" bucket exists and is Public.');
+      return;
+    }
+    console.log('[saveProfilePic] Uploaded URL:', res.url);
 
-    const payload = {
-      user_id: user.id,
-      user_email: meta?.email || null,
-      user_name: meta?.name || null,
-      profile_pic: res.url
-    };
-
-    const { error: updErr } = await supabase
+    // 2) Upsert into DB — single call
+    const { error } = await supabase
       .from('profiles')
-      .update({ profile_pic: res.url, user_email: payload.user_email, user_name: payload.user_name })
-      .eq('user_id', user.id);
+      .upsert(
+        {
+          user_id: user.id,
+          user_email: meta?.email || null,
+          user_name: meta?.name || null,
+          profile_pic: res.url,
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: 'user_id' }
+      );
 
-    if (updErr) {
-      const { error: insErr } = await supabase.from('profiles').insert([payload]);
-      if (insErr) { alert('Save failed: ' + insErr.message); return; }
+    if (error) {
+      console.error('[saveProfilePic] DB error:', error);
+      alert('Save failed: ' + error.message);
+      return;
     }
 
+    console.log('[saveProfilePic] DB upsert succeeded');
     setProfilePic(res.url);
     alert('✅ Profile picture saved!');
   };
 
   const removeProfilePic = async () => {
     if (!user) return;
+    const { error } = await supabase
+      .from('profiles')
+      .update({ profile_pic: null })
+      .eq('user_id', user.id);
+    if (error) { alert('Could not remove: ' + error.message); return; }
     setProfilePic(null);
-    await supabase.from('profiles').update({ profile_pic: null }).eq('user_id', user.id);
   };
 
   const markPasswordChanged = async () => {
@@ -480,7 +504,7 @@ function Homepage({ navigate, activeCourses, students, user, meta }) {
         <Stat icon={<FlaskConical/>} n="4" label="Academic Years"/>
         <Stat icon={<FileText/>} n="100+" label="Course Capacity"/>
       </section>
-      <section className="section">
+      <section className="section" style={{ marginBottom: '0', paddingBottom: '0' }}>
         <SectionTitle kicker="WELCOME TO DMU GEOLOGY" title="A Center for Geological Education & Research"/>
         <div className="cards four">
           <Feature icon={<GraduationCap/>} title="Academic Programs" text="Explore our BSc geology curriculum." onClick={()=>navigate("academics")}/>
@@ -489,8 +513,176 @@ function Homepage({ navigate, activeCourses, students, user, meta }) {
           <Feature icon={<Users/>} title="Our Students" text="Student services." onClick={()=>navigate("students")}/>
         </div>
       </section>
+
       <HomeVideo user={user} meta={meta} />
     </main>
+  );
+}
+
+// ============================================
+// HOMEPAGE VIDEO — autoplay, muted, loops
+// ============================================
+function HomeVideo({ user, meta }) {
+  const [videoUrl, setVideoUrl] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [caption, setCaption] = useState('');
+  const isStaff = meta?.role === 'staff';
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('home_video').select('*').eq('id', 1).maybeSingle();
+      if (data) {
+        setVideoUrl(data.video_url || '');
+        setCaption(data.caption || '');
+      }
+    })();
+  }, []);
+
+  const upload = async (file) => {
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) return alert('Video must be under 50MB.');
+    setBusy(true);
+    const up = await uploadToStorage('videos', file);
+    if (!up) { setBusy(false); return alert('Upload failed. Check the "videos" bucket exists and is Public.'); }
+
+    const { error } = await supabase
+      .from('home_video')
+      .upsert({ id: 1, video_url: up.url, caption, updated_by: meta?.name }, { onConflict: 'id' });
+
+    setBusy(false);
+    if (error) return alert(error.message);
+    setVideoUrl(up.url);
+    alert('✅ Video uploaded!');
+  };
+
+  const saveCaption = async () => {
+    const { error } = await supabase
+      .from('home_video')
+      .upsert({ id: 1, video_url: videoUrl || null, caption, updated_by: meta?.name }, { onConflict: 'id' });
+    if (error) return alert(error.message);
+    alert('✅ Caption saved!');
+  };
+
+  const removeVideo = async () => {
+    if (!confirm('Remove video from homepage?')) return;
+    await supabase.from('home_video').upsert({ id: 1, video_url: null, caption }, { onConflict: 'id' });
+    setVideoUrl('');
+  };
+
+  if (!videoUrl && !isStaff) return null;
+
+  return (
+    <section style={{ marginTop: '0', paddingTop: '20px', paddingBottom: '40px' }}>
+      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 20px' }}>
+        <SectionTitle
+          kicker="OUR DEPARTMENT IN MOTION"
+          title="Department of Geology — Highlights"
+          text="A glimpse into our classrooms, labs, and field activities."
+        />
+
+        <div style={{
+          background: 'white',
+          border: '1px solid #dbe4ec',
+          borderRadius: '14px',
+          padding: '16px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+        }}>
+          {videoUrl ? (
+            <>
+              <video
+                autoPlay
+                muted
+                loop
+                playsInline
+                controls
+                preload="auto"
+                style={{
+                  width: '100%',
+                  maxHeight: '520px',
+                  borderRadius: '10px',
+                  background: '#000',
+                  display: 'block',
+                  objectFit: 'cover'
+                }}
+                src={videoUrl}
+              >
+                Your browser does not support the video tag.
+              </video>
+              {caption && (
+                <p style={{
+                  margin: '15px 0 0',
+                  textAlign: 'center',
+                  color: '#66788a',
+                  fontSize: '14px',
+                  fontStyle: 'italic'
+                }}>
+                  {caption}
+                </p>
+              )}
+            </>
+          ) : (
+            <div style={{
+              textAlign: 'center',
+              padding: '60px 20px',
+              background: '#f8f9fa',
+              borderRadius: '10px',
+              color: '#66788a'
+            }}>
+              <PlayCircle size={52} color="#1769aa" />
+              <h3 style={{ color: '#102a43', marginTop: '12px' }}>No video yet</h3>
+              <p style={{ margin: 0 }}>
+                {isStaff ? 'Upload a short video below to display it here.' : 'Check back later.'}
+              </p>
+            </div>
+          )}
+
+          {isStaff && (
+            <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #eef3f6' }}>
+              <h4 style={{ color: '#102a43', marginTop: 0 }}>Manage Video</h4>
+
+              <div style={{ display: 'grid', gap: '10px' }}>
+                <div>
+                  <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px', fontSize: '13px' }}>
+                    Upload Video (MP4, max 50MB)
+                  </label>
+                  <input
+                    type="file"
+                    accept="video/mp4,video/webm,video/quicktime"
+                    onChange={(e) => upload(e.target.files[0])}
+                    disabled={busy}
+                  />
+                  {busy && <span style={{ marginLeft: '10px', color: '#66788a' }}>Uploading...</span>}
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px', fontSize: '13px' }}>
+                    Caption (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={caption}
+                    onChange={(e) => setCaption(e.target.value)}
+                    placeholder="e.g. Field trip to the Blue Nile Gorge, 2025"
+                    style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '6px' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button className="primary" onClick={saveCaption} style={{ background: '#28a745' }}>
+                    💾 Save Caption
+                  </button>
+                  {videoUrl && (
+                    <button className="secondary" onClick={removeVideo} style={{ color: '#dc3545' }}>
+                      🗑️ Remove Video
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -765,30 +957,30 @@ function About({ user, meta }) {
                 borderRadius: '12px', overflow: 'hidden', display: 'flex', flexWrap: 'wrap'
               }}>
                 {p.image_url && (
-  <div style={{
-    flex: '0 0 320px',
-    maxWidth: '320px',
-    minHeight: '200px',
-    maxHeight: '400px',
-    overflow: 'hidden',
-    background: '#f0f4f8',
-    display: 'flex',
-    alignItems: 'flex-start',
-    justifyContent: 'center'
-  }}>
-    <img
-      src={p.image_url}
-      alt={p.title}
-      style={{
-        width: '100%',
-        height: 'auto',
-        maxHeight: '400px',
-        objectFit: 'contain',
-        display: 'block'
-      }}
-    />
-  </div>
-)}
+                  <div style={{
+                    flex: '0 0 320px',
+                    maxWidth: '320px',
+                    minHeight: '200px',
+                    maxHeight: '400px',
+                    overflow: 'hidden',
+                    background: '#f0f4f8',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    justifyContent: 'center'
+                  }}>
+                    <img
+                      src={p.image_url}
+                      alt={p.title}
+                      style={{
+                        width: '100%',
+                        height: 'auto',
+                        maxHeight: '400px',
+                        objectFit: 'contain',
+                        display: 'block'
+                      }}
+                    />
+                  </div>
+                )}
                 <div style={{ flex: 1, padding: '22px', minWidth: '260px' }}>
                   <h3 style={{ margin: '0 0 10px', color: '#102a43' }}>{p.title}</h3>
                   <p style={{ color: '#444', fontSize: '14px', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>{p.content}</p>
@@ -3805,160 +3997,6 @@ function ForcePasswordChange({ meta, onChanged, onLogout }) {
         </button>
       </div>
     </div>
-  );
-}
-function HomeVideo({ user, meta }) {
-  const [videoUrl, setVideoUrl] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [caption, setCaption] = useState('');
-  const isStaff = meta?.role === 'staff';
-
-  // Load saved video + caption
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.from('home_video').select('*').eq('id', 1).maybeSingle();
-      if (data) {
-        setVideoUrl(data.video_url || '');
-        setCaption(data.caption || '');
-      }
-    })();
-  }, []);
-
-  const upload = async (file) => {
-    if (!file) return;
-    if (file.size > 50 * 1024 * 1024) return alert('Video must be under 50MB.');
-    setBusy(true);
-    const up = await uploadToStorage('videos', file);
-    if (!up) { setBusy(false); return alert('Upload failed.'); }
-
-    const { error } = await supabase
-      .from('home_video')
-      .upsert({ id: 1, video_url: up.url, caption, updated_by: meta?.name }, { onConflict: 'id' });
-
-    setBusy(false);
-    if (error) return alert(error.message);
-    setVideoUrl(up.url);
-    alert('✅ Video uploaded!');
-  };
-
-  const saveCaption = async () => {
-    const { error } = await supabase
-      .from('home_video')
-      .upsert({ id: 1, video_url: videoUrl, caption, updated_by: meta?.name }, { onConflict: 'id' });
-    if (error) return alert(error.message);
-    alert('✅ Caption saved!');
-  };
-
-  const removeVideo = async () => {
-    if (!confirm('Remove video from homepage?')) return;
-    await supabase.from('home_video').upsert({ id: 1, video_url: null, caption }, { onConflict: 'id' });
-    setVideoUrl('');
-  };
-
-  return (
-    <section className="section" style={{ marginTop: '0', paddingTop: '0' }}>
-      <SectionTitle
-        kicker="OUR DEPARTMENT IN MOTION"
-        title="Department of Geology — Highlights"
-        text="A glimpse into our classrooms, labs, and field activities."
-      />
-
-      <div style={{
-        background: 'white',
-        border: '1px solid #dbe4ec',
-        borderRadius: '14px',
-        padding: '20px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
-      }}>
-        {videoUrl ? (
-          <>
-            <video
-              controls
-              style={{
-                width: '100%',
-                maxHeight: '520px',
-                borderRadius: '10px',
-                background: '#000',
-                display: 'block'
-              }}
-              src={videoUrl}
-            >
-              Your browser does not support the video tag.
-            </video>
-            {caption && (
-              <p style={{
-                margin: '15px 0 0',
-                textAlign: 'center',
-                color: '#66788a',
-                fontSize: '14px',
-                fontStyle: 'italic'
-              }}>
-                {caption}
-              </p>
-            )}
-          </>
-        ) : (
-          <div style={{
-            textAlign: 'center',
-            padding: '60px 20px',
-            background: '#f8f9fa',
-            borderRadius: '10px',
-            color: '#66788a'
-          }}>
-            <PlayCircle size={52} color="#1769aa" />
-            <h3 style={{ color: '#102a43', marginTop: '12px' }}>No video yet</h3>
-            <p style={{ margin: 0 }}>
-              {isStaff ? 'Upload a short video below to display it here.' : 'Check back later.'}
-            </p>
-          </div>
-        )}
-
-        {isStaff && (
-          <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #eef3f6' }}>
-            <h4 style={{ color: '#102a43', marginTop: 0 }}>Manage Video</h4>
-
-            <div style={{ display: 'grid', gap: '10px' }}>
-              <div>
-                <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px', fontSize: '13px' }}>
-                  Upload Video (MP4, max 50MB)
-                </label>
-                <input
-                  type="file"
-                  accept="video/mp4,video/webm,video/quicktime"
-                  onChange={(e) => upload(e.target.files[0])}
-                  disabled={busy}
-                />
-                {busy && <span style={{ marginLeft: '10px', color: '#66788a' }}>Uploading...</span>}
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontWeight: '600', marginBottom: '5px', fontSize: '13px' }}>
-                  Caption (optional)
-                </label>
-                <input
-                  type="text"
-                  value={caption}
-                  onChange={(e) => setCaption(e.target.value)}
-                  placeholder="e.g. Field trip to the Blue Nile Gorge, 2025"
-                  style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '6px' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button className="primary" onClick={saveCaption} style={{ background: '#28a745' }}>
-                  💾 Save Caption
-                </button>
-                {videoUrl && (
-                  <button className="secondary" onClick={removeVideo} style={{ color: '#dc3545' }}>
-                    🗑️ Remove Video
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </section>
   );
 }
 function AppRoot(){ return <App/>; }
